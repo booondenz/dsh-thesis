@@ -195,9 +195,9 @@ const gateMessages = await ctx.waterfall('agent/pre-step', {
 }, enterNext)
 const injected = (gateMessages?.messages ?? []).filter(m => m.source?.plugin === 'dsh-thesis')
 check('写作意图触发闸门并注入插件消息', injected.length === 1, 'injected=' + injected.length)
-check('注入消息来自 dsh-thesis 且带 sections',
-  injected[0]?.source?.plugin === 'dsh-thesis' && Array.isArray(injected[0]?.source?.sections),
-  JSON.stringify(injected[0]?.source?.sections?.[0]?.name ?? null))
+check('注入消息来自 dsh-thesis、form=instructions 且不带 sections（sections 只属于 snapshot）',
+  injected[0]?.source?.plugin === 'dsh-thesis' && injected[0]?.source?.form === 'instructions' && injected[0]?.source?.sections === undefined,
+  JSON.stringify(injected[0]?.source ?? null))
 const injectedText = (injected[0]?.content ?? []).map(b => b.text ?? '').join('')
 check('注入指令要求先追问（含 thesis_intake）', /thesis_intake/.test(injectedText) && /追问|问清/.test(injectedText),
   injectedText.slice(0, 80))
@@ -216,14 +216,15 @@ check('无关消息不注入（闸门安静）',
 
 // 7d) 意图规格闸门：工作区不可读时**不得**注入「先立规格」指令。
 // 注意要按 message id 对比下游基线——写作意图闸门对同一句话本来就会注入一条，
-// 我们要确认的是「有没有**第二条**（规格闸门那条）」。这正好防止把两个闸门
-// 混淆成一个（它们共用同一个 plugin 来源标记）。
+// 我们要确认的是「有没有**第二条**（规格闸门那条）」。两个闸门共用同一个
+// plugin 来源标记与 form，因此只能靠正文里的闸门标题区分。
 const specGate = await ctx.waterfall('agent/pre-step', {
   agent: { session: { header: { cwd: process.cwd() } } },
   messages: [userMessage('帮我写第三章')], turn: 1, step: 1, signal,
 }, enterNext)
 const specInjected = (specGate?.messages ?? []).filter(m =>
-  m.source?.plugin === 'dsh-thesis' && (m.source?.sections ?? []).some(s => s.name === '意图规格闸门'))
+  m.source?.plugin === 'dsh-thesis' &&
+  (m.content ?? []).some(block => String(block.text ?? '').includes('意图规格闸门')))
 check('工作区不可读时意图规格闸门不介入（宁漏勿错）', specInjected.length === 0,
   'intakeInjected=' + specInjected.length)
 

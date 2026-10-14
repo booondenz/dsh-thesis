@@ -10,7 +10,12 @@
  * 3. **验收没过**：`npm run verify` 必须全绿（构建 + 类型 + 单测 + 审计 + 端到端）。
  * 4. **包名对不上**：`cordis.patch.yml` 里的 `name:` 必须等于 `package.json` 的 `name`，
  *    否则用户装完，插件行解析不到，表现是"装了但没反应"。
- * 5. **npm 上包名已被他人占用**：**只警告不阻断**——占位包可能永远不会发实现，
+ * 5. **peer 版本被宿主判为不兼容**：DSH 装载前会拿 `dsh-app-boot` 的
+ *    `evaluatePluginCompatibility` 检查 manifest 里 `@deepseek-ai/dsh*` 的 peer range，
+ *    不满足就把插件行标成 disabled —— 同样表现成"装了但没反应"。本仓库真的踩过：
+ *    声明 `@deepseek-ai/dsh-tools: ^0.1.0` 在 dsh 0.2.0-rc.2 上被静默停用。
+ *    这里用宿主自己的函数判断（不是复刻规则），发布前必须过。
+ * 6. **npm 上包名已被他人占用**：**只警告不阻断**——占位包可能永远不会发实现，
  *    要不要换名是发布者的商业判断，不该由脚本替他决定。
  *
  * 用法：node scripts/prepublish-guard.mjs
@@ -22,6 +27,7 @@ import { spawnSync } from 'node:child_process'
 import { closeSync, existsSync, openSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { checkManifestCompatibility } from './lib/host-compat.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const problems = []
@@ -127,7 +133,19 @@ if (!existsSync(patchPath)) {
   }
 }
 
-// ---- 4. 验收：逐步跑，不递归调用 npm（npm run verify 的顺序） ----
+// ---- 4. 宿主兼容性预检：peer range 不满足当前 dsh 运行期 → 装了也会被停用 ----
+// 用宿主自己的 evaluatePluginCompatibility（见 scripts/lib/host-compat.mjs），
+// 因此判据与 DSH 启动时的 preflight 逐字同源。本机没有 DSH 安装时只警告。
+const compatibility = await checkManifestCompatibility(pkg)
+if (compatibility === undefined) {
+  warn('本机未找到 DSH 安装，无法预检 peer 兼容性 —— 发布前请在装有 DSH 的机器上跑 npm run test:host-load')
+} else if (compatibility.compatible) {
+  console.log(`[prepublish-guard] 宿主兼容性预检通过（dsh ${compatibility.runtimeVersion}）`)
+} else {
+  fail(`peer 版本与 dsh ${compatibility.runtimeVersion} 不兼容，装上去会被引擎 disabled：${compatibility.message}`)
+}
+
+// ---- 5. 验收：逐步跑，不递归调用 npm（npm run verify 的顺序） ----
 step('清理构建产物', ['scripts/clean.mjs'])
 step('tsc 构建', ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.json'])
 step('类型检查（含 tests）', ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.test.json'])
@@ -150,7 +168,7 @@ if (existsSync(join(repoRoot, 'lib')) && existsSync(join(repoRoot, 'src'))) {
   if (orphan.length > 0) fail(`构建后 lib/ 仍有孤儿目录：${orphan.join(', ')}`)
 }
 
-// ---- 5. 包名占用提醒（只警告） ----
+// ---- 6. 包名占用提醒（只警告） ----
 console.log(`[prepublish-guard] 包名 ${pkg.name}：发布前请自行确认 npm 上未被占用（npm view ${pkg.name}）`)
 
 // ---- 报告 ----

@@ -265,6 +265,32 @@ export type IntakeAffect =
 （某些受限环境里管道 stdio 直接被拒），需要输出时才 `capture`。
 统一实现在 `src/shared/spawn.ts`，并给 pandoc 之类的调用配了超时。
 
+### ADR-13 宿主 peer range 是**声明**，必须与实测运行期一致
+
+DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
+`prepareProfileEntries` 里逐行执行）只认一件事：插件 `package.json` 里
+`@deepseek-ai/dsh` / `@deepseek-ai/dsh-*` 的 `peerDependencies` 是否被当前运行期版本
+满足（SemVer，`includePrerelease: true`）。不满足 → 该行 `disabled` + stderr 警告，
+**表现是「装了但没反应」**，而不是任何一条插件自己的报错。`engines.dsh` 当前不强制，
+`peerDependenciesMeta.optional` 也不豁免这条规则。
+
+本仓库实际踩过：声明 `@deepseek-ai/dsh-tools: ^0.1.0`（对着 0.1.5-rc.1 写的），
+在 dsh 0.2.0-rc.2 上整个插件被静默停用。当时运行期 import 只有
+`@deepseek-ai/dsh-tools` 的 `defineTool` 与 `schemastery`（ADR-5），
+两者的契约在 0.2.0-rc.2 上逐字未变——**唯一的问题就是这行声明**。
+
+处理方式（避免下次再靠人肉记）：
+
+1. 声明写成**有下界的 range**：`>=<实测版本> <下一小版本>-0`。
+   末尾的 `-0` 不是装饰：`<0.3.0` 在 `includePrerelease: true` 下会把 `0.3.0-rc.1`
+   也算进去，`<0.3.0-0` 才是真正的「不跨小版本」。
+2. 判据不自己实现：`scripts/lib/host-compat.mjs` 直接 import 已安装的
+   `dsh-app-boot`，用宿主自己的函数判断宿主自己的规则（同源，不会漂移）。
+3. 两处强制执行：`npm run test:host-load`（本仓库 manifest **与已安装副本**两份都查，
+   因为 preflight 读的是后者）与 `prepublishOnly` 的 `scripts/prepublish-guard.mjs`
+   （跨小版本后忘了改声明就发不出去）。
+4. 跨小版本时先跑 `npm run test:host` + `npm run test:host-load`，再改 range 的下界。
+
 ---
 
 ## 7. 数据与产物
@@ -313,7 +339,7 @@ export type IntakeAffect =
 | 纯逻辑与契约 | `npm run test:sandbox` | 430 条：相似度、归一化、处方、问题排序、状态机、幻灯渲染、OOXML/PDF 解析、记忆 SQL、代码结构摘要；装配契约（21 工具 / 9 命令 / 2 服务 / 4 类监听）；`definePaperTool` 的 DSL→JSON Schema 编译 |
 | **真实场景端到端** | `npm run test:e2e` | 65 条断言，见 §9.1 |
 | **真实宿主** | `npm run test:host` | 24 项：真实 cordis + dsh-tools 装配、工具 schema 被真实注册表接受、真实执行工具、宿主拒绝缺参、**闸门在真实 waterfall 上真的注入**、卸载后工具注销 |
-| **真实引擎装载** | `npm run test:host-load` | 11 项：真实 `dsh` 引擎解析并校验本插件 |
+| **真实引擎装载** | `npm run test:host-load` | 13 项：用宿主自己的预检函数判 manifest（本仓库 + 已安装副本）会不会被停用，再用真实 `dsh` 引擎 `--dump-config` 组合 profile 并校验 `Config`；`DSH_HOME` 指向工作区内临时目录，无需放宽权限 |
 | 对外表面审计 | `npm run audit` | 工具/命令/技能契约一致 + 技能命名/BOM 检查，见 §9.3 |
 | 真实网络（可选） | `npm run test:net` | 真实学术 API 检索 → 收录 → 笔记 |
 

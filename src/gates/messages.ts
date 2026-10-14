@@ -1,9 +1,13 @@
 /**
  * 闸门注入消息与决策理由的模板。
  *
- * 注入消息的 source 采用 `{ kind: 'plugin', plugin: 'dsh-thesis' }`：
- * - 该标记是防重入的（凭它识别「这已经是闸门消息」）；
- * - GUI 据此把消息渲染为插件来源，而不是伪造的用户发言。
+ * 注入消息的 source 采用 `{ kind: 'plugin', plugin: 'dsh-thesis', form: 'instructions' }`：
+ * - `plugin` 是生产者标识（GUI 用它做行首标签，也用于防重入识别"这已经是闸门消息"）；
+ * - `form` 声明这条上下文的语义形态（当前契约的取值域：instructions / catalog /
+ *   snapshot / notice / relay / recall）；
+ * - **不带 `sections`**：`sections` 只属于 `snapshot` 形态（见
+ *   `ContextFormed`：`{ form: 'snapshot'; sections }`），instructions 形态的
+ *   渲染依据是 `changes`（工作区指令文件的改动清单），本闸门没有文件改动可报。
  *
  * 消息对象直接构造而不调用宿主的 `createUserMessage`：与共享层
  * `definePaperTool` 同一取舍——生产环境的行为由宿主消费该结构时决定，
@@ -57,7 +61,6 @@ export function makeGateMessage(intentExcerpt: string, maxQuestions: number): Us
     source: {
       ...PLUGIN_SOURCE,
       form: 'instructions',
-      sections: [{ name: '写作意图闸门', text }],
     },
   } as UserMessage
 }

@@ -64,12 +64,13 @@
     "prepublishOnly": "node scripts/prepublish-guard.mjs"
   },
   "engines": {
-    "node": ">=22.16"
+    "node": ">=22.16",
+    "dsh": ">=0.2.0-rc.2 <0.3.0-0"
   },
   "peerDependencies": {
     "@deepseek-ai/schemastery": "^3.18.2",
     "@deepseek-ai/cordis": "^4.0.2",
-    "@deepseek-ai/dsh-tools": "^0.1.0"
+    "@deepseek-ai/dsh-tools": ">=0.2.0-rc.2 <0.3.0-0"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": { "optional": true },

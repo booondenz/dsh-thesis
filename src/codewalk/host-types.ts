@@ -130,8 +130,10 @@ export interface InjectedUserMessageShape {
   readonly source: {
     readonly kind: 'plugin'
     readonly plugin: string
-    readonly form: string
-    readonly sections: readonly { readonly name: string; readonly text: string }[]
+    /** 上下文形态：instructions / catalog / snapshot / notice / relay / recall（可缺省 = 不透明）。 */
+    readonly form?: string
+    /** 只有 `form: 'snapshot'` 携带分节；`instructions` 形态的有效字段是 `changes`。 */
+    readonly sections?: readonly { readonly name: string; readonly text: string }[]
   }
 }
 

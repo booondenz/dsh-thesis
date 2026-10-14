@@ -117,12 +117,17 @@ export function intakeGateInstruction(status: SpecStatus, specRel: string): stri
   ].join('\n')
 }
 
-/** 构造注入消息（user 角色、插件来源；与 learn 的进度卡同一形态）。 */
+/**
+ * 构造注入消息（user 角色、插件来源、instructions 形态）。
+ *
+ * 与 `gates/messages.ts` 同源：`sections` 只属于 `snapshot` 形态，
+ * instructions 形态不带它（渲染依据是 `changes`，本闸门没有文件改动可报）。
+ */
 export function makeIntakeGateMessage(status: SpecStatus, specRel: string, id: string): {
   id: string
   role: 'user'
   content: Array<{ type: 'text'; text: string }>
-  source: { kind: string; plugin: string; form: string; sections: Array<{ name: string; text: string }> }
+  source: { kind: string; plugin: string; form: string }
 } {
   const text = intakeGateInstruction(status, specRel)
   return {
@@ -133,7 +138,6 @@ export function makeIntakeGateMessage(status: SpecStatus, specRel: string, id: s
       kind: 'plugin',
       plugin: 'dsh-thesis',
       form: 'instructions',
-      sections: [{ name: '意图规格闸门', text }],
     },
   }
 }

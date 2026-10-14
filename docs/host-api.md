@@ -1,4 +1,11 @@
-﻿# DSH 第三方插件宿主 API 参考（0.1.5-rc.1）
+# DSH 第三方插件宿主 API 参考（0.1.5-rc.1）
+
+> **版本与兼容**：本文的签名摘自已安装产物，最初对着 **dsh 0.1.5-rc.1** 记录；
+> 已用 **dsh 0.2.0-rc.2** 重新核对本插件实际用到的每一处（`defineTool` 的 DSL、
+> `ctx.tools.register`、`agent/pre-step` 与 `tools/pre-execute` 的 waterfall、
+> `ctx.commands.register`、`ctx.skills.registerProvider`、`ctx.shell` /
+> `ctx.sandboxPolicy`），结论是契约未变。
+> **唯一真正会挡住装载的不是 API，而是 manifest 的 peer range**——见 §7.7。
 
 只记录契约：签名、类型、事件名、注册与加载规则。签名逐字摘自已安装产物的 `lib/types/**/*.d.ts` 与 `lib/*.js`，
 冲突处已标注。安装根：`C:\Users\TTTT\AppData\Local\npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\`
@@ -427,6 +434,11 @@ type PreStepDecision = { kind: 'reject' } | { kind: 'enter'; messages: UserMessa
 `next()` 保持当前 messages；返回值替换进入该步骤的消息，或拒绝该步骤（mode `waterfall`，按 agent 作用域过滤派发）。
 注入物必须是 `UserMessage`：`{ id, role: 'user', content: ContentBlock[], source }`，`source` 用
 `{ kind: 'plugin', plugin: '<name>' } & ContextFormed`（`form: 'instructions' | 'catalog' | 'snapshot' | 'notice' | 'relay' | 'recall'`）。
+`form` 决定客户端怎么渲染，且**每个形态只带自己那几个字段**（`ContextFormed` 是判别联合）：
+`sections` 只属于 `snapshot`，`summary` 只属于 `notice`，`instructions` 的渲染依据是
+`changes`（工作区指令文件的改动清单，见 `dsh-agent-instructions`）。
+形态带错字段不会报错，但客户端会判为不可读并退回**不透明**渲染（仍然可见、带生产者标签），
+所以「注入了但样式不对」通常是 form/字段配错了。
 
 ```ts
 import type { Context } from '@deepseek-ai/cordis'
@@ -619,6 +631,46 @@ name: dsh-thesis
 | bundle 包名 | 必须是 Node 可解析的 npm 包名；作为 `dsh.profile.bundles` 项时必须声明 `dsh.bundle` | `profile bundle "X" declares no dsh.bundle in its package.json` |
 | 工具名 | `run_code` 被 PTC 传输保留 | `tool name "run_code" is reserved ...` |
 | Loader entry `id` | 包含树内稳定唯一、非空 | 由 Loader entry 树裁决 |
+
+### 7.7 插件兼容性预检（peer 版本门）—— 最容易被忽略的一条装载规则
+
+`dsh-app-boot` 的 `preflight()`（由 `prepareProfileEntries()` 在装载前对**每一行**调用）
+只做一件事：把该行解析到某个 `package.json`（`manifestOf()`：裸包名沿
+`createRequire(parentURL).resolve.paths()` 逐级找 `<dir>/<bare>/package.json`；
+`file:` / 绝对路径则从解析出的真实文件向上找最近的 `package.json`），然后执行
+`evaluatePluginCompatibility(manifest, exemptions)`：
+
+```ts
+// 逐字对齐 dsh-app-boot/lib/index.js 的 evaluatePluginCompatibility()
+for (const [name, range] of Object.entries(manifest.peerDependencies ?? {})) {
+  if (name !== '@deepseek-ai/dsh' && !name.startsWith('@deepseek-ai/dsh-')) continue   // 只查 dsh 系
+  const requirement = ['workspace:^', 'workspace:~', 'workspace:*'].includes(range)
+    ? runtimeVersion : range
+  if (!semver.satisfies(runtimeVersion, requirement, { includePrerelease: true })) peers[name] = range
+}
+// peers 非空 → 返回 issue；exempted === false 时该行被 disabled
+```
+
+要点（都是踩过的坑）：
+
+- **运行期版本来自 `@deepseek-ai/dsh-app-boot` 自己的 `package.json`**
+  （`getDshRuntimeVersion()`），不是 `dsh` 的版本号，也不是插件的 `version`。
+- **只有 `@deepseek-ai/dsh` / `@deepseek-ai/dsh-*` 被检查**：`@deepseek-ai/cordis`、
+  `@deepseek-ai/schemastery` 写什么都不影响这条门（第一方插件的惯例是 dsh 系**精确锁版**
+  `"0.2.0-rc.2"`、cordis 用 `~4.0.4`；第三方插件无法与 dsh 同步发版，因此本项目用
+  `>=0.2.0-rc.2 <0.3.0-0` 这种带下界的 range）。
+- **`peerDependenciesMeta.optional` 不豁免**；`engines.dsh` 也不参与判定（只是声明）。
+- **`includePrerelease: true` 让 `<0.3.0` 也接受 `0.3.0-rc.1`**（预发布版排序在正式版之前），
+  要真正卡住小版本边界得写 `<0.3.0-0`。
+- 后果不是异常，而是**该行 `disabled` + 一行 stderr**：
+  `dsh: disabling profile plugin row "paper": Plugin <name>@<version> is incompatible with dsh <runtime>: peerDependencies {...}`
+  —— 现场表现是「插件装了但完全没反应」。可用 `dsh plugin allow-version` 给
+  `包名@版本` × `精确 dsh 版本` 开豁免（写进 profile 的 `compatibility.json`），
+  但正解是修 range。
+- **这条门不执行插件代码，也不跑 `--dump-config`**：`--dump-config` 只组合配置树，
+  旧 range 也能组合成功。要观察它必须真的启动一次，或者直接用上面的函数判定
+  （本仓库的 `scripts/lib/host-compat.mjs` 就是这么做的，`npm run test:host-load`
+  会同时检查**本仓库 manifest** 与 **profile 里已安装的那一份**）。
 
 ---
 
