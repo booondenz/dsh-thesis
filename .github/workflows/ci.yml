@@ -44,6 +44,13 @@ jobs:
       - name: 端到端基准
         run: npm run test:e2e
 
+      - name: 发布守卫（模拟全新 checkout：lib/ 不存在）
+        # 守卫唯一真跑的地方是 npm publish，它要是自己错了，代价是一次 tag 作废。
+        # 这里先删掉 lib/ 再跑，等价于 CI 上的干净工作树。
+        run: |
+          rm -rf lib
+          node scripts/prepublish-guard.ts
+
       - name: 打包内容自检（不发包）
         run: npm pack --dry-run
 

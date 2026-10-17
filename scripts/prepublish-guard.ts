@@ -7,6 +7,7 @@
  *    删掉/重命名模块后旧产物会永远留着（甚至能被解析），发布出去就是一包垃圾。
  *    → 比对 `lib/` 的目录集合与 `src/` 是否一一对应。
  * 2. **忘了构建**：`main` 指向 `lib/index.js`，DSH 没有 TS 加载器，缺了就装不起来。
+ *    这项校验必须放在构建步骤**之后**——CI 是全新 checkout，`lib/` 一开始并不存在。
  * 3. **验收没过**：`npm run verify` 必须全绿（构建 + 类型 + 单测 + 审计 + 端到端）。
  * 4. **包名对不上**：`cordis.patch.yml` 里的 `name:` 必须等于 `package.json` 的 `name`，
  *    否则用户装完，插件行解析不到，表现是"装了但没反应"。
@@ -96,31 +97,7 @@ function step(label, args) {
 
 const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
 
-// ---- 1. 构建产物存在 ----
-if (!existsSync(join(repoRoot, 'lib', 'index.js'))) {
-  fail('缺少 lib/index.js —— DSH 没有 TypeScript 加载器，必须发布编译后的 JS。请先 npm run build')
-}
-
-// ---- 2. lib/ 与 src/ 的目录集合一一对应（挡住 tsc 孤儿产物） ----
-if (existsSync(join(repoRoot, 'lib')) && existsSync(join(repoRoot, 'src'))) {
-  const dirs = root => readdirSync(join(repoRoot, root), { withFileTypes: true })
-    .filter(entry => entry.isDirectory())
-    .map(entry => entry.name)
-    .filter(name => name !== 'types') // src/types 只有 .d.ts，不产出目录
-    .sort()
-  const srcDirs = dirs('src')
-  const libDirs = dirs('lib')
-  const orphan = libDirs.filter(name => !srcDirs.includes(name))
-  const missing = srcDirs.filter(name => !libDirs.includes(name))
-  if (orphan.length > 0) {
-    fail(`lib/ 里有多余目录（已删除模块的旧产物）：${orphan.join(', ')}。请 npm run build（会先 clean）`)
-  }
-  if (missing.length > 0) {
-    fail(`lib/ 缺少目录：${missing.join(', ')}。请 npm run build`)
-  }
-}
-
-// ---- 3. cordis.patch.yml 的插件行必须与包名一致 ----
+// ---- 1. cordis.patch.yml 的插件行必须与包名一致 ----
 const patchPath = join(repoRoot, 'cordis.patch.yml')
 if (!existsSync(patchPath)) {
   fail('缺少 cordis.patch.yml —— 没有它，dsh plugin add 不会把它认成 bundle')
@@ -133,7 +110,7 @@ if (!existsSync(patchPath)) {
   }
 }
 
-// ---- 4. 宿主兼容性预检：peer range 不满足当前 dsh 运行期 → 装了也会被停用 ----
+// ---- 2. 宿主兼容性预检：peer range 不满足当前 dsh 运行期 → 装了也会被停用 ----
 // 用宿主自己的 evaluatePluginCompatibility（见 scripts/lib/host-compat.ts），
 // 因此判据与 DSH 启动时的 preflight 逐字同源。本机没有 DSH 安装时只警告。
 const compatibility = await checkManifestCompatibility(pkg)
@@ -145,7 +122,7 @@ if (compatibility === undefined) {
   fail(`peer 版本与 dsh ${compatibility.runtimeVersion} 不兼容，装上去会被引擎 disabled：${compatibility.message}`)
 }
 
-// ---- 5. 验收：逐步跑，不递归调用 npm（npm run verify 的顺序） ----
+// ---- 3. 验收：逐步跑，不递归调用 npm（npm run verify 的顺序） ----
 step('清理构建产物', ['scripts/clean.ts'])
 step('tsc 构建', ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.json'])
 step('类型检查（含 tests）', ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.test.json'])
@@ -158,18 +135,25 @@ step('单元/契约测试', ['--test', '--test-isolation=none', ...testFiles])
 step('对外表面审计', ['scripts/audit-surface.ts'])
 step('端到端基准', ['tests/e2e/paper-full-flow.ts'])
 
-// 构建与测试刚跑过，再校验一次 lib/ 与 src/ 是否一一对应（挡住 tsc 孤儿产物）。
-if (existsSync(join(repoRoot, 'lib')) && existsSync(join(repoRoot, 'src'))) {
+// ---- 4. 构建产物：必须在构建**之后**校验 ----
+// CI 是全新 checkout，lib/ 在 .gitignore 里、本来就不存在；在这里之前校验会直接误报。
+if (!existsSync(join(repoRoot, 'lib', 'index.js'))) {
+  fail('构建没有产出 lib/index.js —— DSH 没有 TypeScript 加载器，发布出去装不上；先看上面 tsc 那一步的输出')
+} else if (existsSync(join(repoRoot, 'src'))) {
   const subdirs = root => readdirSync(join(repoRoot, root), { withFileTypes: true })
     .filter(entry => entry.isDirectory())
     .map(entry => entry.name)
-    .filter(name => name !== 'types')
+    .filter(name => name !== 'types') // src/types 只有 .d.ts，不产出目录
+    .sort()
   const srcDirs = subdirs('src')
-  const orphan = subdirs('lib').filter(name => !srcDirs.includes(name))
-  if (orphan.length > 0) fail(`构建后 lib/ 仍有孤儿目录：${orphan.join(', ')}`)
+  const libDirs = subdirs('lib')
+  const orphan = libDirs.filter(name => !srcDirs.includes(name))
+  const missing = srcDirs.filter(name => !libDirs.includes(name))
+  if (orphan.length > 0) fail(`lib/ 里有多余目录（已删除模块的旧产物）：${orphan.join(', ')}`)
+  if (missing.length > 0) fail(`lib/ 缺少目录：${missing.join(', ')}`)
 }
 
-// ---- 6. 包名占用提醒（只警告） ----
+// ---- 5. 包名占用提醒（只警告） ----
 console.log(`[prepublish-guard] 包名 ${pkg.name}：发布前请自行确认 npm 上未被占用（npm view ${pkg.name}）`)
 
 // ---- 报告 ----
