@@ -260,7 +260,9 @@ test('convert：成功时调用落盘钩子写 PPT.pptx，说明里记录命令�
   assert.match(text, /转换成功：07-答辩\/PPT\.pptx（引擎：marp）/)
   assert.match(text, /探测：marp=可用；npx marp-cli=无；pandoc=无/)
   assert.equal(writes.length, 1)
-  assert.equal(writes[0]!.path, nodePath.join(ROOT, PPT_RELS.pptx))
+  // 生产侧把工作区根 resolve 过（`findThesisRoot` 返回已解析路径），所以两边都按
+  // 解析后的形态比较：POSIX 上 `resolve('C:/repo/thesis')` 会带进程 cwd 前缀。
+  assert.equal(nodePath.resolve(writes[0]!.path), nodePath.resolve(nodePath.join(ROOT, PPT_RELS.pptx)))
   const notes = h.fs.peek(nodePath.join(ROOT, PPT_RELS.notes))!
   assert.match(notes, /结果：成功，引擎 marp/)
   assert.match(notes, /退出码：0；耗时：1234 ms/)
