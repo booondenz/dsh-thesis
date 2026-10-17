@@ -5,10 +5,23 @@
 
 ## 一次性设置
 
-1. 在 npm 上建一个 **Automation** token（Account → Access Tokens → Generate New Token → Automation）。
-   开了 2FA 的账号用普通 token 会在 CI 里被拒；Automation token 或带 bypass 的 Granular token 才行。
+1. 在 npm 上建 token：Account → Access Tokens → **Generate New Token → Granular Access Token**
+   （经典页面的 Automation token 也能用，但 Granular 权限更细）。填法：
+
+   | 字段 | 选什么 |
+   |---|---|
+   | Token name | `dsh-thesis-ci`（认得出是 CI 用的即可）|
+   | Allowed IP ranges | **留空**（GitHub Actions 的 IP 每次都变，填了就自己把自己拦住）|
+   | Packages and scopes → Permissions | **Read and write (publish and stage)**——`stage only` 发不出去 |
+   | 选完权限后的范围 | **Select packages → `dsh-thesis`**（只给它；要发全新包名时才临时用 All packages）|
+   | Organizations | **No access**（包名不带 scope）|
+   | Expiration | 90 或 180 天；token 过期后 CI 会 `401`，到期前重建 |
+
+   底部 Summary 应该显示 **Read and write access to dsh-thesis**；如果还写着 "no access"，
+   说明 Permissions 没点选，回去重选。2FA 账号若仍报 `EOTP`，退回 Classic → Automation token。
+
 2. GitHub 仓库 → Settings → Secrets and variables → Actions → New repository secret：
-   名字 `NPM_TOKEN`，值就是那个 token。
+   名字 `NPM_TOKEN`，值就是那个 token（**它只显示一次**；别贴进仓库、issue 或任何聊天记录）。
 3. 确认仓库是 **public**：`npm publish --provenance` 需要 OIDC，私有仓库用不了。
 
 ## 发一次版
