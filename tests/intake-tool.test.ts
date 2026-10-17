@@ -11,7 +11,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { intakeToolDefinition, type IntakeArgs, type IntakeExec, type IntakeSubOptions } from '../src/intake/definitions.ts'
-import { parseCommandInput, registerIntake, registerIntakeCommand, runIntake } from '../src/intake/index.ts'
+import { registerIntake, runIntake } from '../src/intake/index.ts'
 import { listRequired } from '../src/intake/questions.ts'
 import { parseState, STATE_REL } from '../src/intake/state.ts'
 import { FakeFs, materialsMarkdown, ROOT, workspace } from './intake-fixtures.ts'
@@ -332,7 +332,7 @@ test('完整走一遍：全部必答项答完后 done 通过，规格里无阻�
   assert.match(spec, /已读取|未找到/, '材料感知状态必须写进规格')
 })
 
-test('registerIntake：注册 thesis_intake 与 /thesis-intake 命令（命令不可用时静默跳过）', () => {
+test('registerIntake：只注册 thesis_intake 工具，不碰命令面（插件已无斜杠命令）', () => {
   const fs = workspace({})
   const tools: string[] = []
   const commands: string[] = []
@@ -343,38 +343,9 @@ test('registerIntake：注册 thesis_intake 与 /thesis-intake 命令（命令�
   }
   registerIntake(ctx as never, { intake: OPTS })
   assert.deepEqual(tools, ['thesis_intake'])
-  assert.deepEqual(commands, ['thesis-intake'])
+  assert.deepEqual(commands, [], '插件不再注册任何斜杠命令')
 
-  // 没有命令服务的宿主：工具照常注册，命令静默跳过，不抛异常。
+  // 没有命令服务的宿主：工具照常注册，不抛异常。
   const toolsOnly = { fs, tools: { register: () => () => {} } }
   assert.doesNotThrow(() => registerIntake(toolsOnly as never, { intake: OPTS }))
-  assert.equal(registerIntakeCommand(toolsOnly as never, { intake: OPTS }), false)
-})
-
-test('/thesis-intake 命令：输入解析 + handler 用会话 cwd 驱动同一执行层', async () => {
-  assert.deepEqual(parseCommandInput(''), { action: 'ask' })
-  assert.deepEqual(parseCommandInput('  status '), { action: 'status' })
-  assert.deepEqual(parseCommandInput('done'), { action: 'done' })
-  assert.deepEqual(parseCommandInput('answer school.name XX大学 计算机学院'), { action: 'answer', question_id: 'school.name', answer: 'XX大学 计算机学院' })
-  assert.deepEqual(parseCommandInput('skip ref.samples 暂时没有'), { action: 'skip', question_id: 'ref.samples', reason: '暂时没有' })
-  // 只写问题 id + 答案的简写，等价于 answer。
-  assert.deepEqual(parseCommandInput('scope.core 做校园问答'), { action: 'answer', question_id: 'scope.core', answer: '做校园问答' })
-
-  const fs = workspace({})
-  const commands: Array<{ name: string; handler: (inv: unknown) => Promise<{ kind: string; text?: string }> }> = []
-  const ctx = {
-    fs,
-    tools: { register: () => () => {} },
-    commands: { register: (def: unknown) => { commands.push(def as never); return () => {} } },
-  }
-  registerIntake(ctx as never, { intake: OPTS })
-  const handler = commands[0]!.handler
-  const out = await handler({ rawInput: '', signal: undefined, agent: { session: { header: { cwd: ROOT } } } })
-  assert.equal(out.kind, 'success')
-  assert.equal(countQuestions(out.text ?? ''), 1, '命令同样一次只问一个问题')
-  assert.match(out.text ?? '', /第 1\/12 个问题/, '缺省输入等价于取下一个问题')
-  assert.ok(fs.files.has(`${ROOT}/${STATE_REL}`), '命令也会初始化状态')
-
-  const started = await handler({ rawInput: 'start', signal: undefined, agent: { session: { header: { cwd: ROOT } } } })
-  assert.match(started.text ?? '', /已读取既有追问状态（可断点续问）/)
 })

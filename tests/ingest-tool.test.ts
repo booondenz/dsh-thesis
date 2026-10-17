@@ -8,7 +8,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as nodePath from 'node:path'
-import { ingestCommand } from '../src/ingest/commands.ts'
 import {
   MAX_MANIFEST_BYTES,
   MATERIAL_DIR,
@@ -282,27 +281,3 @@ test('runIngest：代码文件过多摘要仍只吃结构，不贴正文', async
   assert.match(summary, /fn11/)
 })
 
-// ---------------------------------------------------------------------------
-// /thesis-ingest 斜杠命令（实现由 src/ingest/commands.ts 提供）
-// ---------------------------------------------------------------------------
-
-test('ingestCommand：空参数给出用法，坏路径给出可读错误', async () => {
-  const fs = seededFs()
-  const command = ingestCommand(fs, OPTIONS) as {
-    name: string
-    handler: (invocation: unknown) => Promise<{ kind: string; text?: string }>
-  }
-  assert.equal(command.name, 'thesis-ingest')
-
-  const empty = await command.handler({ rawInput: '   ', agent: { session: { header: { cwd: abs('/thesis') } } }, signal: undefined })
-  assert.equal(empty.kind, 'error')
-  assert.match(empty.text ?? '', /用法：\/thesis-ingest/)
-
-  const badOption = await command.handler({ rawInput: '/x --nope', agent: { session: { header: { cwd: abs('/thesis') } } }, signal: undefined })
-  assert.equal(badOption.kind, 'error')
-  assert.match(badOption.text ?? '', /无法识别的选项/)
-
-  const missing = await command.handler({ rawInput: '/definitely/not/here', agent: { session: { header: { cwd: abs('/thesis') } } }, signal: undefined })
-  assert.equal(missing.kind, 'error')
-  assert.match(missing.text ?? '', /路径不存在/)
-})

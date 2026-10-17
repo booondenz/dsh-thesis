@@ -1,6 +1,6 @@
 {
   "name": "dsh-thesis",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "论文与答辩全流程助手（DeepSeek Harness 插件）：材料摄取 → 逐题追问 → 文献检索 → 逐章写作与评审 → 原创性自查与合规 → Word/答辩幻灯生产，全流程留痕，并跨会话记住学校规范与导师要求。",
   "type": "module",
   "main": "lib/index.js",

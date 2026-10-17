@@ -22,7 +22,6 @@ import { bulletList, definePaperTool, sessionCwd, textOutput } from '../shared/i
 import { CHAPTER_META, isWrittenChapter } from '../paper/lib/layout.ts'
 import { findThesisRoot } from '../paper/lib/project.ts'
 import type { SimilarityOptions } from '../config.ts'
-import { dedupCommand } from './commands.ts'
 import { segmentsFromText, type Segment } from './normalize.ts'
 import { scan, type ScanOptions, type ScanResult } from './similarity.ts'
 import {
@@ -399,12 +398,6 @@ export function registerDedup(ctx: Context, options: { similarity: SimilarityOpt
       return await runDedup(ctx.fs, sessionCwd(exec), rawArgs as DedupArgs, options.similarity, exec.signal)
     },
   }))
-
-  // `/thesis-originality [scan|verify|report] [语料路径] [--chapter 01-绪论]`：与工具同一执行层，
-  // 命令只是给人用的快捷入口（命令名只允许 [a-z][a-z0-9_-]*）。
-  if (ctx.commands !== undefined) {
-    ctx.commands.register(dedupCommand(ctx.fs, options.similarity))
-  }
 }
 
 export { segmentsFromText, scan, buildReport, renderReport, weightedRateOf }

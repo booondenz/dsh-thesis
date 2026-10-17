@@ -41,11 +41,11 @@ const EXPECTED_TOOLS = [
   'fact_search', 'fact_remember', 'fact_context',
 ]
 
-/** 命令契约。 */
-const EXPECTED_COMMANDS = [
-  'thesis-status', 'thesis-decide', 'thesis-lit', 'thesis-check', 'thesis-build',
-  'thesis-ingest', 'thesis-intake', 'thesis-originality', 'thesis-defense',
-]
+/**
+ * 命令契约：**一条都没有**。插件不再提供人用命令行，改由自动驾驶在论文工作区里
+ * 自己把流程推起来（`src/autopilot/`，DESIGN.md ADR-15）。
+ */
+const EXPECTED_COMMANDS = []
 
 const NAMESPACE_PREFIXES = ['thesis_', 'fact_', 'defense_code_']
 
@@ -64,6 +64,8 @@ function hasBom(raw) {
 }
 
 // ---- 1. 工具契约：源码里注册的名字必须恰好等于契约 ----
+// 工具的 `name:` 一律带下划线的命名空间前缀；不带下划线的单字是斜杠命令（见第 2 节），
+// 所以这里按「含下划线」筛，避免把 `/thesis` 误判成游离工具名。
 const registeredTools = []
 const walkSource = (relDir) => {
   const abs = join(repoRoot, relDir)
@@ -73,7 +75,9 @@ const walkSource = (relDir) => {
     if (entry.isDirectory()) walkSource(rel)
     else if (/\.ts$/.test(entry.name)) {
       const text = readFileSync(join(repoRoot, rel), 'utf8')
-      for (const m of text.matchAll(/^\s*name:\s*'([a-z][a-z0-9_]*)',\s*$/gm)) registeredTools.push({ name: m[1], file: rel })
+      for (const m of text.matchAll(/^\s*name:\s*'([a-z][a-z0-9_]*)',\s*$/gm)) {
+        if (m[1].includes('_')) registeredTools.push({ name: m[1], file: rel })
+      }
     }
   }
 }
@@ -89,7 +93,9 @@ if (missingTools.length > 0) fail(`契约里的工具未在源码中注册：${m
 if (extraTools.length > 0) fail(`源码注册了契约外的工具：${extraTools.join(', ')}`)
 notes.push(`工具：注册 ${registeredNames.length} 个，契约 ${EXPECTED_TOOLS.length} 个`)
 
-// ---- 2. 命令契约 ----
+// ---- 2. 命令契约：必须一条都没有 ----
+// 命令名不含下划线（工具的 `thesis_*` 都含），据此把两类 `name: '…'` 分开。
+// 这条断言是「插件回到命令行入口」的守门人：一旦有人重新注册斜杠命令，这里就红。
 const registeredCommands = []
 const walkCommands = (relDir) => {
   for (const entry of readdirSync(join(repoRoot, relDir), { withFileTypes: true })) {
@@ -98,20 +104,17 @@ const walkCommands = (relDir) => {
     else if (/\.ts$/.test(entry.name)) {
       const text = readFileSync(join(repoRoot, rel), 'utf8')
       for (const m of text.matchAll(/^\s*name:\s*'([a-z][a-z0-9_-]*)',\s*$/gm)) {
-        if (m[1].includes('-')) registeredCommands.push(m[1])
+        if (!m[1].includes('_')) registeredCommands.push(`${rel}:${m[1]}`)
       }
     }
   }
 }
 walkCommands('src')
-const missingCommands = EXPECTED_COMMANDS.filter(name => !registeredCommands.includes(name))
-const extraCommands = registeredCommands.filter(name => !EXPECTED_COMMANDS.includes(name))
-if (missingCommands.length > 0) fail(`契约里的命令未注册：${missingCommands.join(', ')}`)
-if (extraCommands.length > 0) fail(`注册了契约外的命令：${extraCommands.join(', ')}`)
-for (const name of registeredCommands) {
-  if (!/^[a-z][a-z0-9_-]*$/.test(name)) fail(`命令名 ${name} 不符合 DSH 的 /^[a-z][a-z0-9_-]*$/ 约束`)
+for (const hit of registeredCommands) {
+  const [file, name] = hit.split(':')
+  fail(`${file} 注册了斜杠命令「${name}」：本插件不提供人用命令行，入口是自动驾驶（ADR-15）`)
 }
-notes.push(`命令：注册 ${registeredCommands.length} 个，契约 ${EXPECTED_COMMANDS.length} 个`)
+notes.push(`命令：注册 ${registeredCommands.length} 条，契约 ${EXPECTED_COMMANDS.length} 条`)
 
 // ---- 3. 技能：frontmatter name 必须等于目录名 ----
 const skillsRoot = join(repoRoot, 'skills')

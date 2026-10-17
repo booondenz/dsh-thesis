@@ -2,7 +2,7 @@
  * 共享的验证门执行逻辑：通过 `ctx.shell` 跑一个里程碑的验证命令，把结论折进
  * 引擎（记录 + 状态 + 落盘），再把结算后的结果交回给调用方渲染。
  *
- * 人类的 `/thesis-defense check` 命令与模型侧的 `defense_code_update` `check_gate` 动作共用这段
+ * 人类的 `/thesis defense check` 命令与模型侧的 `defense_code_update` `check_gate` 动作共用这段
  * 逻辑，因此两个表面永远不会对「什么叫 verified」产生分歧。
  *
  * @module dsh-thesis/codewalk

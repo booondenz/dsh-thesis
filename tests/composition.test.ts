@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 装配测试：用**假宿主**跑通 `apply()`，断言整个插件对外暴露的表面。
  *
  * 这是本仓库最重要的一条集成测试：它不验证任何业务逻辑，只验证「各模块被同一个
@@ -28,11 +28,11 @@ const EXPECTED_TOOLS = [
   'fact_search', 'fact_remember', 'fact_context',
 ].sort()
 
-/** 斜杠命令全集（命令名只允许 [a-z][a-z0-9_-]*）。 */
-const EXPECTED_COMMANDS = [
-  'thesis-status', 'thesis-decide', 'thesis-lit', 'thesis-check', 'thesis-build',
-  'thesis-ingest', 'thesis-intake', 'thesis-originality', 'thesis-defense',
-].sort()
+/**
+ * 斜杠命令全集：**一条都没有**。插件不再提供人用命令行，改由自动驾驶在
+ * 论文工作区里自己把流程推起来（`src/autopilot/`，DESIGN.md ADR-15）。
+ */
+const EXPECTED_COMMANDS: readonly string[] = []
 
 /** 命名空间规则：论文工作区 `thesis_*` / 跨会话事实 `fact_*` / 代码演练 `defense_code_*`。 */
 const NAMESPACE_PREFIXES: readonly string[] = ['thesis_', 'fact_', 'defense_code_']
@@ -108,7 +108,7 @@ function fakeHost(): FakeHost {
   return { ctx, tools, commands, definitions, provided, effects, listeners }
 }
 
-test('apply() 挂载全部 21 个工具、9 个命令、2 个服务与 4 类闸门监听', () => {
+test('apply() 挂载全部 21 个工具、零条斜杠命令、2 个服务与 5 类监听', () => {
   const host = fakeHost()
   apply(host.ctx, { memoryPath: ':memory:' })
 
@@ -126,15 +126,14 @@ test('apply() 挂载全部 21 个工具、9 个命令、2 个服务与 4 类闸�
     )
   }
 
-  const missingCommands = EXPECTED_COMMANDS.filter(name => !host.commands.includes(name))
-  assert.deepEqual(missingCommands, [], `缺少命令：${missingCommands.join(', ')}`)
-  assert.deepEqual([...host.commands].sort(), EXPECTED_COMMANDS, '命令名集合必须与契约一致')
+  assert.deepEqual(host.commands, EXPECTED_COMMANDS, '插件不注册任何斜杠命令（入口改为自动驾驶）')
   assert.ok(host.provided.has('memory'), 'ctx.memory 必须被注册')
   assert.ok(host.provided.has('paperCodeWalkthrough'), 'ctx.paperCodeWalkthrough 必须被注册')
   assert.deepEqual(
     [...host.listeners.entries()].sort(),
-    [['agent/pre-step', 4], ['tools/pre-execute', 1]],
-    'agent/pre-step 应由写作意图闸门、事实回灌、代码演练进度卡、意图规格闸门各装一个；tools/pre-execute 由不可逆操作闸门装一个',
+    [['agent/pre-step', 5], ['tools/pre-execute', 2]],
+    'agent/pre-step 应由写作意图闸门、事实回灌、代码演练进度卡、意图规格闸门、自动驾驶各装一个；'
+    + 'tools/pre-execute 由不可逆操作闸门与关卡拍板各装一个',
   )
   assert.ok(host.effects.includes('dsh-thesis.memory.closeDatabase'), '事实库必须注册卸载清理')
 })

@@ -3,7 +3,7 @@
  *
  * 设计取舍（记录在 DESIGN.md ADR-8）：
  * 运行期这些能力全部来自 DSH 安装本体的真实包（cordis / dsh-tools / dsh-fs /
- * dsh-commands / dsh-agent / dsh-llm），由 profile 的扁平 node_modules 解析；
+ * dsh-agent / dsh-llm），由 profile 的扁平 node_modules 解析；
  * 本文件只在**编译期**提供插件实际使用到的最小表面，使本仓库不依赖任何
  * `@deepseek-ai/*` 的 npm 安装即可 `tsc` 通过（离线可构建、可评审）。
  *
@@ -32,7 +32,6 @@ declare module '@deepseek-ai/cordis' {
   export interface Context {
     readonly tools: import('@deepseek-ai/dsh-tools').ToolRegistry
     readonly fs: import('@deepseek-ai/dsh-fs').FileSystem
-    readonly commands: import('@deepseek-ai/dsh-commands').CommandRegistry
     readonly logger: Logger
     /** 注册一个服务（如 `ctx.provide('memory', service)`）。 */
     provide(name: string, value: unknown): void
@@ -106,29 +105,6 @@ declare module '@deepseek-ai/dsh-fs' {
     writeText(target: FsTarget, content: string, expected?: unknown, signal?: AbortSignal, sandboxPolicy?: unknown): Promise<{ version?: unknown }>
     listDir(target: FsTarget, signal?: AbortSignal): Promise<FsDirEntry[]>
     stat(target: FsTarget, signal?: AbortSignal): Promise<FsInfo | undefined>
-  }
-}
-
-declare module '@deepseek-ai/dsh-commands' {
-  export interface CommandInvocation {
-    readonly commandId: string
-    readonly agent: {
-      readonly session: {
-        readonly header: {
-          readonly cwd?: string
-        }
-      }
-    }
-    readonly rawInput: string
-    readonly signal: AbortSignal
-  }
-
-  export type CommandResult =
-    | { readonly kind: 'success'; readonly text?: string }
-    | { readonly kind: 'error'; readonly text: string }
-
-  export interface CommandRegistry {
-    register(definition: unknown): () => void
   }
 }
 

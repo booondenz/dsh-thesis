@@ -62,33 +62,6 @@ export interface AgentShape {
   }
 }
 
-/** 传给某个已注册命令 handler 的调用信息。 */
-export interface CommandInvocationShape {
-  readonly commandId: unknown
-  readonly agent: AgentShape
-  readonly rawInput: string
-  readonly signal: AbortSignal
-}
-
-/** 由调度 UI 直接渲染的命令结果。 */
-export type CommandResultShape =
-  | { readonly kind: 'success'; readonly text?: string }
-  | { readonly kind: 'error'; readonly text: string }
-
-/** 插件自有命令注册（`ctx.commands.register`）。 */
-export interface CommandDefinitionShape {
-  readonly name: string
-  readonly description: string
-  readonly input?: { readonly hint: string }
-  readonly recordInput?: boolean
-  handler(invocation: CommandInvocationShape): CommandResultShape | Promise<CommandResultShape>
-}
-
-/** 命令注册表（`ctx.commands`）；在 headless 组合里是可选的。 */
-export interface CommandsServiceShape {
-  register(definition: CommandDefinitionShape): unknown
-}
-
 /** 面向模型的消息或工具渲染中的一个文本内容块。 */
 export interface TextBlockShape {
   readonly type: 'text'

@@ -436,7 +436,7 @@ export class AiLearningEngine {
     }
   }
 
-  /** `/thesis-defense status` 用的人类可读状态文本。 */
+  /** `/thesis defense status` 用的人类可读状态文本。 */
   describe(state: LearningState): string {
     const view = this.snapshot(state)
     const verified = state.milestones.filter((milestone) => milestone.status === 'verified').length

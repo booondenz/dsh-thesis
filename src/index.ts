@@ -2,7 +2,8 @@
  * dsh-thesis：论文与答辩全流程助手（DeepSeek Harness 单一插件）。
  *
  * 本文件是**唯一装配层**：把各能力挂到同一个插件 fiber 上，对外只有一行
- * `dsh plugin add dsh-thesis`、一个 Config、一套技能。
+ * `dsh plugin add dsh-thesis`、一个 Config、一套技能。**没有斜杠命令**：
+ * 插件在论文工作区里自己把流程推起来（开头一道选择题 + 关卡拍板）。
  *
  * | 目录 | 职责 |
  * |---|---|
@@ -14,6 +15,7 @@
  * | `memory/` | 跨会话事实：学校规范、导师要求、写作偏好（学生不必直接调用） |
  * | `codewalk/` | 代码演练：把 AI 写的系统拆成答辩讲得清的模块 |
  * | `gates/` | 闸门：写作意图闸门 + 不可逆操作闸门 + 意图规格闸门 |
+ * | `autopilot/` | 自动驾驶：开头一道选择题 + 建目标自动续轮 + 关卡拍板（无斜杠命令） |
  * | `shared/` | 工具胶水、工具定义器、文本与文件系统错误工具 |
  *
  * **一个领域模型**：材料 → 要求 → 九阶段 → 论文与答辩。学生的工具清单里
@@ -24,8 +26,8 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { fileURLToPath } from 'node:url'
+import { installAutopilot } from './autopilot/index.ts'
 import { registerCodewalk } from './codewalk/register.ts'
-import { registerDefenseCommand } from './commands.ts'
 import { Config, resolveConfig, type PaperConfig } from './config.ts'
 import { registerDedup } from './dedup/index.ts'
 import { installDangerousGate } from './gates/dangerous.ts'
@@ -40,7 +42,7 @@ import { registerPpt } from './ppt/index.ts'
 
 export const name = 'dsh-thesis'
 
-export const inject = ['tools', 'fs', 'commands']
+export const inject = ['tools', 'fs']
 
 export { Config }
 export { PAPER_DEFAULTS, resolveConfig, type PaperConfig, type ResolvedPaperConfig } from './config.ts'
@@ -65,7 +67,7 @@ export function apply(ctx: Context, config: PaperConfig = {}): void {
   // 事实回灌：相关时自动把已确认的稳定事实放回上下文（不相关则完全静默）。
   installFactRecall(ctx, resolved.recall)
 
-  // 论文工作区：11 个工具 + 5 个命令。
+  // 论文工作区：11 个工具。
   registerPaper(ctx, { skillsDir: SKILLS_DIR })
 
   // 代码演练（答辩层）：3 个工具 + 进度卡注入 + code-walkthrough 技能。
@@ -74,7 +76,7 @@ export function apply(ctx: Context, config: PaperConfig = {}): void {
   // 材料入口：Office 摄取 → 文本与材料清单。
   registerIngest(ctx, { ingest: resolved.ingest })
 
-  // 意图规格：逐题追问状态机 + `/thesis-intake`。
+  // 意图规格：逐题追问状态机。
   registerIntake(ctx, { intake: resolved.intake })
 
   // 原创性自查：本地度量 + 改写处方 + 复测。
@@ -83,8 +85,9 @@ export function apply(ctx: Context, config: PaperConfig = {}): void {
   // 答辩：Markdown 幻灯 + 外部转换器探测。
   registerPpt(ctx, { ppt: resolved.ppt })
 
-  // 答辩命令：幻灯侧与代码演练侧在装配层聚合为 `/thesis-defense`。
-  registerDefenseCommand(ctx, { ppt: resolved.ppt })
+  // 自动驾驶：论文工作区里开口就问一次意图 → 建目标自动续轮；关卡由人拍板。
+  // 不提供任何斜杠命令：人只在「开头选一次」与「过关卡」两处出现。
+  installAutopilot(ctx, { ...resolved.autopilot, specRel: resolved.intake.specRel })
 
   // 闸门：写作意图闸门 + 不可逆操作闸门 + 意图规格闸门。
   installWritingGate(ctx, resolved.gates)

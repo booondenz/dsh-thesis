@@ -74,7 +74,7 @@ thesis_slides convert      → 探测 marp / npx marp-cli / pandoc；有则产�
 thesis_slides guide        → 只输出转换指引，不执行
 ```
 
-等价斜杠命令：`/thesis-defense prepare [页数] [undergrad|master] [force]`、`convert`、`check`、`guide`。
+本插件没有斜杠命令：幻灯侧全部通过 `thesis_slides` 工具驱动（`action` 取 `outline` / `convert` / `check` / `guide`）。
 
 硬约束（`check` 会逐条查）：每页要点 3-6 条、单条 ≤ 30 字、每页必须有讲稿与证据锚点、
 不得出现"待补充/TODO"、预计时长 8-12 分钟（每页 40-60 秒）。

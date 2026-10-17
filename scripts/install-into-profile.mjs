@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 把本插件装进一个 DSH profile —— **不需要 pnpm** 的兜底安装路径。
  *
  * 背景：`dsh plugin --profile <name> add <spec>` 会把安装转发给 pnpm；本机（以及不少
@@ -110,7 +110,7 @@ console.log("           memoryPath: C:\\\\Users\\\\you\\\\.dsh\\\\dsh-thesis-mem
 console.log('           ppt: { engine: auto }')
 console.log('\n2) 重启 dsh（插件行在下次启动时生效）。')
 console.log('\n验证（重启后任选其一）：')
-console.log('   · 敲 /thesis-status —— 能看到台账状态就说明工具与命令面都活了；')
+console.log('   · 在论文工作区里说一句「帮我做毕业设计」——应先弹出一道选择题（从零走到答辩 / 只补合规与答辩 / 只做答辩准备 / 先别自动跑）；')
 console.log('   · 对着 AI 说「帮我写第三章」——应触发**写作意图闸门**，要求先用 thesis_intake 追问；')
 console.log('   · 问「你现在有哪些论文相关工具」——应报出 thesis_* / fact_* / defense_code_* 三个命名空间。')
 console.log('\n卸载：node scripts/install-into-profile.mjs --profile ' + args.profile + ' --remove（并删掉上面那段 YAML）。')

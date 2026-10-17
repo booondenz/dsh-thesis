@@ -11,7 +11,6 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as nodePath from 'node:path'
 import { PPT_RELS, runPptAction, type PptDeps } from '../src/ppt/actions.ts'
-import * as commandModule from '../src/ppt/commands.ts'
 import { renderMarp } from '../src/ppt/marp.ts'
 import { buildSlidePlan } from '../src/ppt/outline.ts'
 import type { PptOptions } from '../src/config.ts'
@@ -304,32 +303,3 @@ test('outline：素材存在时优先于章节回退，且不写转换说明', a
   assert.equal(h.fs.has(nodePath.join(ROOT, NOTES_REL)), false, 'outline 不写转换说明')
 })
 
-test('/thesis-defense 命令：幻灯侧输入解析（动作/页数/档位/force）', () => {
-  const { parsePptCommandInput } = commandModule
-  assert.deepEqual(parsePptCommandInput('prepare'), { action: 'outline' })
-  assert.deepEqual(parsePptCommandInput('outline'), { action: 'outline' })
-  assert.deepEqual(parsePptCommandInput('convert'), { action: 'convert' })
-  assert.deepEqual(parsePptCommandInput('check 12 master'), { action: 'check', pages: 12, audience: 'master' })
-  assert.deepEqual(parsePptCommandInput('outline 11 force'), { action: 'outline', pages: 11, force: true })
-  assert.deepEqual(parsePptCommandInput('guide --force'), { action: 'guide', force: true })
-  assert.throws(() => parsePptCommandInput('wat'), /无法识别的参数/)
-})
-
-test('/thesis-defense 命令：幻灯侧处理器在假 fs 上跑 outline', async () => {
-  const { handlePptCommand } = commandModule
-  const fs = seedFullWorkspace(new FakeFs())
-  const result = await handlePptCommand(
-    fs,
-    { ppt: PPT_OPTIONS },
-    {
-      commandId: 'thesis-defense',
-      rawInput: 'prepare',
-      signal: { aborted: false },
-      agent: { session: { header: { cwd: ROOT } } },
-    } as never,
-    { detect: () => NO_ENGINE, now: () => FAKE_NOW },
-  )
-  assert.equal(result.kind, 'success')
-  assert.match(result.text ?? '', /幻灯 Markdown 已生成/)
-  assert.ok(fs.has(nodePath.join(ROOT, PPT_RELS.slides)))
-})

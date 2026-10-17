@@ -62,8 +62,10 @@ node scripts/install-into-profile.mjs --profile web     # 没有 pnpm 时的兜�
 | 答辩 | `thesis_defense` `thesis_slides` `defense_code_*` | 素材 + 六类问题库；Marp 兼容幻灯（含讲稿与证据锚点）；代码演练把系统拆成讲得清的模块 |
 | 跨会话事实 | `fact_search` `fact_remember` `fact_context` | SQLite 记住学校规范、导师要求、写作偏好；相关时自动放回上下文 |
 
-斜杠命令 9 个：`/thesis-status` `/thesis-decide` `/thesis-lit` `/thesis-check` `/thesis-build`
-`/thesis-ingest` `/thesis-intake` `/thesis-originality` `/thesis-defense`。
+**没有斜杠命令。** 在论文工作区里开口说话，插件自己接管：先问你**一道选择题**（从零走到答辩 /
+只补合规与答辩 / 只做答辩准备 / 先别自动跑），选定后建目标、自动一轮轮跑下去，
+只在 **G1-G4 人工关卡** 停下来让你拍一次板（审批界面点允许或拒绝）。
+想退回「纯工具 + 技能」模式：`autopilot: { enabled: false }`。
 
 技能包 11 个（随插件发布，`thesis_init` 复制进论文仓库 `.dsh/skills/` 与论文一起 git 版本化）：
 `thesis-pipeline` `thesis-opener` `thesis-literature` `thesis-eng-design` `thesis-writing` `thesis-citation`

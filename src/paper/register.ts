@@ -1,15 +1,14 @@
-﻿/**
- * 论文工作区的工具与命令装配：台账、关卡、文献、评审、检查、构建、答辩素材。
+/**
+ * 论文工作区的工具装配：台账、关卡、文献、评审、检查、构建、答辩素材。
  *
  * 纯业务逻辑在 `paper/tools/*.ts` 与 `paper/lib/*.ts`（零 cordis 依赖、可独立
- * 测试）；本文件只做 `defineTool` / 命令注册的胶水。
+ * 测试）；本文件只做 `defineTool` 的胶水。
  *
  * @module dsh-thesis/paper
  */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { definePaperTool, sessionCwd, textOutput, writeBinary } from '../shared/index.ts'
-import { buildCommand, checkCommand, decideCommand, litCommand, statusCommand } from './commands.ts'
 import { initSummary, runInit, type InitArgs } from './tools/init.ts'
 import { runProgress, type ProgressArgs } from './tools/progress.ts'
 import { runDecision, type DecisionArgs } from './tools/decision.ts'
@@ -205,10 +204,4 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
       return await runDefensePrep(ctx.fs, sessionCwd(exec), exec.signal)
     },
   }))
-
-  ctx.commands.register(statusCommand(ctx.fs))
-  ctx.commands.register(decideCommand(ctx.fs))
-  ctx.commands.register(litCommand(ctx.fs))
-  ctx.commands.register(checkCommand(ctx.fs))
-  ctx.commands.register(buildCommand(ctx.fs))
 }

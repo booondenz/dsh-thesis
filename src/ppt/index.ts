@@ -27,7 +27,6 @@ export { checkDeck, renderCheckReport, verifyAnchors } from './check.ts'
 export type { CheckResult, SlideIssue } from './check.ts'
 export { runPptAction, runOutline, runCheckAction, runConvertAction, runGuideAction, planFromInputs, PPT_RELS } from './actions.ts'
 export type { PptArgs, PptDeps, PptActionResult, DeckCheck } from './actions.ts'
-export { handlePptCommand, parsePptCommandInput } from './commands.ts'
 
 /** `thesis_slides` 的工具描述（中文，面向模型与用户）。 */
 export const PPT_TOOL_DESCRIPTION =
@@ -37,7 +36,7 @@ export const PPT_TOOL_DESCRIPTION =
   '无论成败都写 07-答辩/PPT转换说明.md（探测结果 + 命令 + 退出码 + 输出摘要）。'
 
 /**
- * 注册 `thesis_slides` 工具与 `/thesis-defense` 命令。
+ * 注册 `thesis_slides` 工具。
  *
  * 二进制例外（与 `thesis_build` 一致，文档化）：pptx 由外部命令直接写在目标路径，
  * `ctx.fs` 无二进制写入能力，故落盘钩子用 node:fs（{@link writeBinary}）；

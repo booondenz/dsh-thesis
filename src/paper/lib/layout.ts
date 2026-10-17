@@ -208,7 +208,7 @@ ${HEADER_NOTE}
 ${HEADER_NOTE}
 
 > 每个关键决定的留痕：内容、理由、备选。答辩时它是"我为什么这么写"的证据。
-> 由 \`thesis_decide\` 工具或 /thesis-decide 命令追加。
+> 由 \`thesis_decide\` 工具或 /thesis decide 命令追加。
 
 （暂无决定）
 `,

@@ -77,7 +77,7 @@ description: 计算机类本科毕业设计全流程总纲。任何涉及论文�
 - 答辩前要讲清自己的系统：加载 `code-walkthrough`
 - 写作要求被质疑、导师口径模糊：加载 `thesis-inquiry`
 
-## 插件工具地图（dsh-thesis 全集：21 个工具 / 9 个命令）
+## 插件工具地图（dsh-thesis 全集：21 个工具 / 1 条命令 9 个动词）
 
 命名空间规则：`thesis_*` 操作论文工作区里的东西；`fact_*` 操作跨会话的稳定事实；
 `defense_code_*` 是答辩层的代码演练。
@@ -91,9 +91,9 @@ description: 计算机类本科毕业设计全流程总纲。任何涉及论文�
 | 写作 | `thesis_review` / `thesis_check` / `thesis_build` | 逐章评审 → 全文一致性检查 → Word 构建 |
 | 合规 | `thesis_stylecheck` / `thesis_originality` | 写作风格自查（AI 味）/ 原创性本地度量与复测 |
 | 答辩 | `thesis_defense` / `thesis_slides` | 答辩素材与问题库 / 幻灯 Markdown 与 pptx 转换 |
-| 答辩 | `defense_code_status` / `defense_code_next` / `defense_code_update` | 代码演练：把系统拆成讲得清的模块（`/thesis-defense` 命令） |
+| 答辩 | `defense_code_status` / `defense_code_next` / `defense_code_update` | 代码演练：把系统拆成讲得清的模块 |
 | 事实 | `fact_search` / `fact_remember` / `fact_context` | 跨会话事实（学校规范、导师要求、写作偏好） |
-| 命令 | `/thesis-status` `/thesis-decide` `/thesis-lit` `/thesis-check` `/thesis-build` `/thesis-ingest` `/thesis-intake` `/thesis-originality` `/thesis-defense` | 上述工具的斜杠入口 |
+| 入口 | 无斜杠命令 | 本插件不提供命令行：在论文工作区开口说话，插件问一道选择题后自己推进；过 G1-G4 时由人拍板 |
 
 ## 会话入口顺序（新会话照这个走）
 

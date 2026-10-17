@@ -105,7 +105,7 @@ test('hook：用户消息与记忆相关 → 注入一张卡片', async () => {
 test('hook：不相关 → 不注入；没有记忆 → 不注入；斜杠命令 → 不注入', async () => {
   const host = boot([entry('school.dedup.system', '知网')])
   assert.equal((await host.listener!(userPayload('帮我把这段话改成被动语态'), enterNext)).messages!.length, 1)
-  assert.equal((await host.listener!(userPayload('/thesis-status'), enterNext)).messages!.length, 1)
+  assert.equal((await host.listener!(userPayload('/thesis status'), enterNext)).messages!.length, 1)
 
   const empty = boot([])
   assert.equal((await empty.listener!(userPayload('学校查重阈值是多少'), enterNext)).messages!.length, 1)

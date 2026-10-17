@@ -18,7 +18,6 @@ import type { FileSystem } from '@deepseek-ai/dsh-fs'
 import type { IngestOptions } from '../config.ts'
 import { findThesisRoot } from '../paper/lib/project.ts'
 import { bulletList, definePaperTool, sessionCwd, textOutput } from '../shared/index.ts'
-import { ingestCommand } from './commands.ts'
 import {
   codeLanguageOf,
   detectTechStack,
@@ -748,7 +747,7 @@ export interface RegisterIngestOptions {
   readonly ingest: IngestOptions
 }
 
-/** 注册 `thesis_ingest`（同步注册，走仓库统一的 `definePaperTool`；斜杠命令见 `commands.ts`）。 */
+/** 注册 `thesis_ingest`（同步注册，走仓库统一的 `definePaperTool`；本插件不提供斜杠命令）。 */
 export function registerIngest(ctx: Context, options: RegisterIngestOptions): void {
   ctx.tools.register(definePaperTool({
     name: 'thesis_ingest',
@@ -770,5 +769,4 @@ export function registerIngest(ctx: Context, options: RegisterIngestOptions): vo
       return renderOutcome(outcome, options.ingest.maxChars)
     },
   }))
-  ctx.commands.register(ingestCommand(ctx.fs, options.ingest))
 }

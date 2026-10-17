@@ -3,7 +3,7 @@
  * 直接对 `registerCodewalk` 做单元验证 —— 用一个只实现引擎与各表面真正读取字段的假
  * ctx（见 `codewalk-fixtures.ts`），断言各表面都被注册、并且缺哪个表面都不会炸。
  *
- * 注意：`/thesis-defense` 命令的注册在装配层（`src/index.ts` + `src/commands.ts`），
+ * 注意：`/thesis defense` 命令的注册在装配层（`src/index.ts` + `src/commands.ts`），
  * 不在本模块，因此这里不断言命令面。
  *
  * @module dsh-thesis/tests/codewalk-composition

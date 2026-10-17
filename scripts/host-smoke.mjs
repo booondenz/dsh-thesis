@@ -90,8 +90,8 @@ function check(label, condition, detail = '') {
   console.log((condition ? '  ok  ' : ' FAIL ') + label + (detail ? '  [' + detail + ']' : ''))
 }
 
-// --- 假 fs / 假 commands：真实宿主里这两者来自 dsh-fs-local 与 dsh-commands，
-//     本冒烟只关心工具注册与执行，用最小替身即可（工具内部的 cwd 逻辑返回可读错误）。
+// --- 假 fs：真实宿主里它来自 dsh-fs-local，本冒烟只关心工具注册与执行，
+//     用最小替身即可（工具内部的 cwd 逻辑返回可读错误）。
 const fakeFs = {
   async resolve(path) { return { displayPath: path } },
   async readText(target) { const error = new Error('ENOENT: ' + target.displayPath); error.code = 'ENOENT'; throw error },
@@ -99,12 +99,9 @@ const fakeFs = {
   async listDir() { return [] },
   async stat() { return undefined },
 }
-const commandNames = []
-const fakeCommands = { register(definition) { commandNames.push(definition.name); return () => {} } }
 
 const ctx = new Context()
 ctx.provide('fs', fakeFs)
-ctx.provide('commands', fakeCommands)
 await ctx.plugin(SystemPrompt)
 await ctx.plugin(ToolRuntime)
 
@@ -113,7 +110,7 @@ await ctx.plugin(paper, config)
 
 // 1) 插件身份与配置 schema
 check('插件名 = dsh-thesis', paper.name === 'dsh-thesis', String(paper.name))
-check('inject 声明 tools/fs/commands', Array.isArray(paper.inject) && paper.inject.length === 3, JSON.stringify(paper.inject))
+check('inject 声明 tools/fs', Array.isArray(paper.inject) && paper.inject.length === 2, JSON.stringify(paper.inject))
 check('导出 Config schema', typeof paper.Config === 'function' || typeof paper.Config === 'object')
 check('宿主 defineTool 已生效（生产同源）', (await import('./lib/shared/define-tool.js')).usingHostDefineTool === true)
 
@@ -141,14 +138,7 @@ check('thesis_progress 参数被编译为 JSON Schema', parameters.type === 'obj
 check('thesis_progress 必填 action', Array.isArray(parameters.required) && parameters.required.includes('action'))
 check('属性上不残留 required:true', parameters.properties?.action?.required === undefined)
 
-// 4) 命令注册（假注册表收集名字）
-const expectedCommands = ['thesis-status', 'thesis-decide', 'thesis-lit', 'thesis-check', 'thesis-build',
-  'thesis-ingest', 'thesis-intake', 'thesis-originality', 'thesis-defense']
-const missingCommands = expectedCommands.filter(name => !commandNames.includes(name))
-check('命令名集合与契约一致（9 个）', missingCommands.length === 0 && commandNames.length === expectedCommands.length,
-  missingCommands.length ? '缺少 ' + missingCommands.join(',') : 'got ' + commandNames.join(','))
-
-// 5) 服务注册
+// 4) 服务注册
 check('ctx.memory 已注册', ctx.get('memory') !== undefined)
 check('ctx.paperCodeWalkthrough 已注册', ctx.get('paperCodeWalkthrough') !== undefined)
 

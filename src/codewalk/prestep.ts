@@ -19,7 +19,7 @@ export function buildProgressMessage(state: Awaited<ReturnType<AiLearningEngine[
   const text = [
     '当前工作区有一个进行中的代码演练（把自己的系统拆成讲得清的模块，并用可评分的追问确认你答辩时讲得出实现细节）。请带学生把它走完。',
     '',
-    '和学生一起推进：带他做完当前里程碑的 todo，逐个提出追问，先沿提示阶梯升级再公布答案，并对照期望要点评分。用 defense_code_status、defense_code_next、defense_code_update 三个工具；只有学生说“做完了”才跑 "/thesis-defense check <milestone>"。',
+    '和学生一起推进：带他做完当前里程碑的 todo，逐个提出追问，先沿提示阶梯升级再公布答案，并对照期望要点评分。用 defense_code_status、defense_code_next、defense_code_update 三个工具；只有学生说“做完了”才跑 "/thesis defense check <milestone>"。',
     '',
   ].join('\n')
   const full = `${text}${JSON.stringify(state, null, 2)}`

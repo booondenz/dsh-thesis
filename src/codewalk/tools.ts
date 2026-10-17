@@ -93,7 +93,7 @@ async function toolCwd(engine: AiLearningEngine, exec: ToolRunContextShape): Pro
   }
   const state = await engine.load(cwd)
   if (state === undefined) {
-    throw new Error(`${cwd} 下没有代码演练状态；请先执行 "/thesis-defense new <原始项目路径>"`)
+    throw new Error(`${cwd} 下没有代码演练状态；请先执行 "/thesis defense new <原始项目路径>"`)
   }
   return state
 }
@@ -155,7 +155,7 @@ function nextPayload(state: LearningState): Record<string, unknown> {
       state.phase === 'analyzing'
         ? '先分析原始项目，用 defense_code_update 把架构记成 todo 与里程碑，然后推进阶段。'
         : state.phase === 'skeletonizing'
-          ? '开始搭骨架：剥掉非核心功能，留下带注释的 TODO 桩，用 /thesis-defense check 跑通编译验证门。'
+          ? '开始搭骨架：剥掉非核心功能，留下带注释的 TODO 桩，用 /thesis defense check 跑通编译验证门。'
           : state.phase === 'learning'
             ? '推进当前里程碑：带学生走完它的 todo，逐个提出追问，并对照期望要点评分。'
             : '全部里程碑已验证：总结学生现在能讲清哪些设计。',

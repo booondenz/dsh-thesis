@@ -29,7 +29,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ DSH（Web / CLI）：自然语言 + /thesis-* 命令                            │
+│ DSH（Web / CLI）：自然语言；插件自己问一道选择题、自己续跑             │
 ├──────────────────────────────────────────────────────────────────────┤
 │ 单一插件 dsh-thesis（Cordis 插件，纯 TypeScript，一行 cordis.patch.yml）│
 │                                                                       │
@@ -54,12 +54,12 @@
 |---|---|---|
 | `src/index.ts` | 唯一装配层：`apply()` 调各模块 register，最后装闸门 | `name` / `inject` / `Config` / `apply` |
 | `src/config.ts` | 统一配置 schema + 默认值单一来源 + `resolveConfig` | `Config` / `PAPER_DEFAULTS` |
-| `src/commands.ts` | 斜杠命令的聚合层（`/thesis-defense` 同时覆盖幻灯与代码演练） | `registerDefenseCommand` |
+| `src/autopilot/**` | 自动驾驶：启动选择题 + 建目标自动续轮 + 关卡拍板（不注册任何命令） | `installAutopilot` |
 | `src/shared/**` | 工具胶水、`definePaperTool`、文本与 fs 错误工具、`spawnCommand` | `definePaperTool` 等 |
 | `src/gates/**` | 写作意图闸门（`agent/pre-step`）+ 不可逆操作闸门（`tools/pre-execute`） | `installWritingGate` / `installDangerousGate` |
 | `src/ingest/**` | ZIP/OOXML/PDF 解析 → 文本；源码目录 → **代码结构摘要**（不贴正文） | `registerIngest` |
 | `src/intake/**` | 问题库 + 状态机 + 意图规格渲染 + 规格闸门 | `registerIntake` |
-| `src/paper/**` | 论文流水线（纯逻辑 + 工具 + 命令） | `registerPaper` |
+| `src/paper/**` | 论文流水线（纯逻辑 + 工具 + 子命令词） | `registerPaper` |
 | `src/dedup/**` | 归一化 + 相似度 + 改写处方 + 报告 | `registerDedup` |
 | `src/ppt/**` | 幻灯计划 + Marp 渲染 + 转换器探测 | `registerPpt` |
 | `src/codewalk/**` | 代码演练：阶段状态机 + 验证门 + 可评分追问 | `registerCodewalk` |
@@ -120,13 +120,18 @@
 |---|---|
 | `fact_search` / `fact_remember` / `fact_context` | 上次记下的学校规范还在吗 / 记住这条稳定事实 / 把这个课题已知事实拉回来 |
 
-### 3.2 命令（9 个）
+### 3.2 命令面：**一条斜杠命令都没有**
 
-`/thesis-status` `/thesis-decide` `/thesis-lit` `/thesis-check` `/thesis-build`
-`/thesis-ingest` `/thesis-intake` `/thesis-originality` `/thesis-defense`
+`ctx.commands` 一次都不注册。人不再操作命令行，入口换成两条宿主事件：
 
-命令名必须匹配 DSH 的 `/^[a-z][a-z0-9_-]*$/`；`/thesis-defense` 的子命令按侧分派：
-幻灯侧 `prepare`（= outline）/ `convert` / `check` / `guide`，代码演练侧 `new` / `status` / `check`。
+| 事件 | 插件做什么 | 人看到什么 |
+|---|---|---|
+| `agent/pre-step` | 认出「论文工作区 + 主 agent + 还没定过意图」→ 问**一道**选择题（`ctx.userQuestions.ask`）→ 答案写进决定日志 → `ctx.goals.create` 建目标（宿主 `goal-round-driver` 此后自动续轮）→ 注入 operating contract | 会话刚开始时的一个选项框 |
+| `tools/pre-execute` | 模型要过 G1-G4 时把决策改成 `ask` | 审批界面的允许 / 拒绝 |
+
+两条铁律：**只对主 agent 生效**（`delegationDepthOf` 同款规则：头里的委派深度 > 0 一律跳过，
+否则子 agent 会再问一遍）、**只对论文工作区生效**（`findThesisRoot` 找不到台账就完全不介入，
+别的项目里装了也不受打扰）。取舍与代价见 ADR-15；`npm run audit` 把「命令注册数必须是 0」变成断言。
 
 ---
 
@@ -187,7 +192,7 @@ export type IntakeAffect =
 
 `dsh plugin add` 一次装完，一个 `Config`，一套技能，模块间共享上下文（intake 写规格、写作读规格、
 原创性自查读章节、幻灯读答辩素材）。代价是包变大；用「目录即模块 + 无跨模块反向依赖」控制耦合。
-`/thesis-defense` 需要同时覆盖幻灯与代码演练，因此它的注册放在装配层（`src/commands.ts`），
+答辩能力横跨幻灯与代码演练，因此两者的装配都在装配层（`src/index.ts`）完成，
 而不是让 `ppt/` 与 `codewalk/` 互相依赖。
 
 ### ADR-2 材料先追问、后动手
@@ -291,6 +296,34 @@ DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
    （跨小版本后忘了改声明就发不出去）。
 4. 跨小版本时先跑 `npm run test:host` + `npm run test:host-load`，再改 range 的下界。
 
+### ADR-15 不提供斜杠命令，插件在后台把流程推起来
+
+命令是给人操作 CLI 的入口。这套流程真正的主角是模型与流水线，人只需要在两处出现：
+**开头选一次意图**、**过关卡时拍一次板**。给他们九条命令（后来收敛成一条 + 九个动词）
+是把「操作界面」当成了产品，而用户要的是「我说一句、它自己跑」。
+
+于是命令面整体删除（ctx.commands 一次都不注册），换成两条宿主事件：
+
+1. gent/pre-step：论文工作区 + 主 agent + 还没有意图规格时，用 ctx.userQuestions.ask
+   问**一道**选择题（四档：从零走到答辩 / 只补合规与答辩 / 只做答辩准备 / 先别自动跑）。
+   选定后把意图写进决定日志、ctx.goals.create 建目标（宿主的 goal-round-driver 按它自动续轮），
+   再注入一条 operating contract（怎么推进、怎么并行、哪里必须停）。
+2. 	ools/pre-execute：模型要过 G1-G4 时把决策改成 sk，由人在审批界面拍一次板。
+   这是「人是作者」这条红线在自动驾驶下的落点：可以自动化流程，不能自动化拍板。
+
+边界（都写成了断言，不靠自觉）：
+
+- **只对主 agent**：委派深度 > 0 一律跳过，否则子 agent 会各自再问一遍（delegationDepthOf 同款规则）。
+- **只对论文工作区**：indThesisRoot 找不到台账就完全不介入，别的项目里装了也不受打扰。
+- **只问一次**：同一个 agent 只问一次；已有 意图规格.md 的会话只记一条日志、不重复打扰。
+- **宿主缺服务就静默退化**：没有 userQuestions / goals 的组合同样能跑，只是退回单轮。
+- **可关**：utopilot: { enabled: false } 退回「纯工具 + 技能」模式。
+
+代价：这是一次**给人的表面的破坏性变更**（命令全没了）。21 个工具名一字未动，
+所以模型侧与自动化不受影响；版本如实走 2.0.0。
+
+之前的中间形态（一条 /thesis + 九个动词）在这个版本里被整体替换：它解决了「列表太吵」，
+但没解决「人不该操作命令行」。留在这里作为教训：**先问清人要的是入口还是自动化**。
 ---
 
 ## 7. 数据与产物
@@ -336,9 +369,9 @@ DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
 
 | 层 | 命令 | 内容 |
 |---|---|---|
-| 纯逻辑与契约 | `npm run test:sandbox` | 430 条：相似度、归一化、处方、问题排序、状态机、幻灯渲染、OOXML/PDF 解析、记忆 SQL、代码结构摘要；装配契约（21 工具 / 9 命令 / 2 服务 / 4 类监听）；`definePaperTool` 的 DSL→JSON Schema 编译 |
+| 纯逻辑与契约 | `npm run test:sandbox` | 422 条：相似度、归一化、处方、问题排序、状态机、幻灯渲染、OOXML/PDF 解析、记忆 SQL、代码结构摘要；装配契约（21 工具 / **0 条命令** / 2 服务 / 5 类监听）；自动驾驶的四种「不该介入」与关卡拍板；`definePaperTool` 的 DSL→JSON Schema 编译 |
 | **真实场景端到端** | `npm run test:e2e` | 65 条断言，见 §9.1 |
-| **真实宿主** | `npm run test:host` | 24 项：真实 cordis + dsh-tools 装配、工具 schema 被真实注册表接受、真实执行工具、宿主拒绝缺参、**闸门在真实 waterfall 上真的注入**、卸载后工具注销 |
+| **真实宿主** | `npm run test:host` | 23 项：真实 cordis + dsh-tools 装配、工具 schema 被真实注册表接受、真实执行工具、宿主拒绝缺参、**闸门在真实 waterfall 上真的注入**、卸载后工具注销 |
 | **真实引擎装载** | `npm run test:host-load` | 13 项：用宿主自己的预检函数判 manifest（本仓库 + 已安装副本）会不会被停用，再用真实 `dsh` 引擎 `--dump-config` 组合 profile 并校验 `Config`；`DSH_HOME` 指向工作区内临时目录，无需放宽权限 |
 | 对外表面审计 | `npm run audit` | 工具/命令/技能契约一致 + 技能命名/BOM 检查，见 §9.3 |
 | 真实网络（可选） | `npm run test:net` | 真实学术 API 检索 → 收录 → 笔记 |

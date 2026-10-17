@@ -459,7 +459,6 @@ export function registerIntake(ctx: Context, options: { intake: IntakeSubOptions
       return await definition.execute(rawArgs as IntakeArgs, exec as unknown as IntakeExecLike)
     },
   }))
-  registerIntakeCommand(ctx, options)
 }
 
 /** 命令执行上下文的最小面（宿主 `CommandInvocation` 在结构上满足它）。 */
@@ -474,58 +473,3 @@ export interface IntakeExecLike {
   }
 }
 
-/** 命令返回值（宿主 `CommandResult` 的形状）。 */
-export interface IntakeCommandResult {
-  readonly kind: 'success' | 'error'
-  readonly text?: string
-}
-
-/** 把 `/thesis-intake` 的一行输入翻译成追问动作。 */
-export function parseCommandInput(raw: string): IntakeArgs {
-  const text = raw.trim()
-  if (text === '') return { action: 'ask' }
-  const [head, ...rest] = text.split(/\s+/)
-  switch (head) {
-    case 'start':
-    case 'ask':
-    case 'status':
-    case 'spec':
-    case 'done':
-      return { action: head }
-    case 'answer': {
-      const [id, ...words] = rest
-      return { action: 'answer', question_id: id ?? '', answer: words.join(' ') }
-    }
-    case 'skip': {
-      const [id, ...words] = rest
-      return { action: 'skip', question_id: id ?? '', reason: words.join(' ') }
-    }
-    default:
-      // 不认识的第一个词：当作问题 id 的简写，等价于 answer（模型/人最常这么用）。
-      return { action: 'answer', question_id: head ?? '', answer: rest.join(' ') }
-  }
-}
-
-/**
- * 注册命令 `/thesis-intake`（命令名只允许 `[a-z][a-z0-9_-]*`）。
- *
- * 用法：`/thesis-intake` 取下一个问题；`/thesis-intake status|spec|done|start`；
- * `/thesis-intake answer school.name XX大学`；`/thesis-intake skip ref.samples 暂时没有`。
- * `ctx.commands` 不可用（未装配命令服务的宿主）时静默跳过，不影响工具能力。
- */
-export function registerIntakeCommand(ctx: Context, options: { intake: IntakeSubOptions }): boolean {
-  const commands = (ctx as { commands?: { register(definition: unknown): unknown } }).commands
-  if (commands === undefined || typeof commands.register !== 'function') return false
-  commands.register({
-    name: 'thesis-intake',
-    description: '逐题追问：材料到手后把模糊要求变成意图规格（一次一个问题）',
-    input: { hint: 'answer <问题id> <答案>｜skip <问题id> <理由>｜status｜spec｜done（缺省取下一个问题）' },
-    async handler(invocation: IntakeExecLike & { readonly rawInput?: string }): Promise<IntakeCommandResult> {
-      const args = parseCommandInput(invocation.rawInput ?? '')
-      const text = await runIntake(ctx.fs as never, options.intake, args, sessionCwd(invocation as never), invocation.signal)
-      // 工具层已经把失败写成可读中文，这里统一按 success 返回（命令不做二次包装）。
-      return { kind: 'success', text }
-    },
-  })
-  return true
-}

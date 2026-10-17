@@ -40,7 +40,7 @@ defense_code_next            # 2. 取当前里程碑：todo 列表 + 验证门 +
    ├─ defense_code_update action=ask_question     # 3. 提一个追问
    ├─ 学生回答 → 你对照 expected 评分 → action=assess_answer passed=true/false
    ├─ 学生卡住 → action=give_hint（一次一条，不要一次给完）
-   └─ /thesis-defense check <里程碑>              # 4. 真跑验证门
+   └─ defense_code_update action=check_gate <里程碑>   # 4. 真跑验证门
    ↓
 全部问题通过 + 验证门为绿 → 里程碑 verified
    ↓
@@ -50,8 +50,10 @@ defense_code_update action=advance_phase      # 5. 直到 complete
 ## 第一次使用：建立演练
 
 ```
-/thesis-defense new <你的项目绝对路径> [--lang go] [--level beginner|intermediate|advanced] [--module 子模块]
+defense_code_update action=new  path=<你的项目绝对路径>  lang=go  level=beginner  module=子模块
 ```
+
+（本插件没有斜杠命令：所有动作都由你调 `defense_code_*` 工具完成。）
 
 然后由你（AI）分析项目并把结构登记成 todo 与里程碑：
 
@@ -86,7 +88,7 @@ defense_code_update action=advance_phase      # 5. 直到 complete
 |---|---|
 | 论文怎么组织、章节怎么验收 | `thesis-writing` / `thesis-pipeline` |
 | 答辩幻灯结构与问题库 | `thesis-defense` |
-| **把系统搞懂、被追问到能自证** | **本技能**（配 `defense_code_*` 三个工具与 `/thesis-defense` 命令） |
+| **把系统搞懂、被追问到能自证** | **本技能**（配 `defense_code_*` 三个工具） |
 
 ## 完成的标准
 

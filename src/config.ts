@@ -1,4 +1,4 @@
-﻿/**
+/**
  * dsh-thesis 的统一配置 schema。
  *
  * 单一插件行 = 单一 Config：论文工作区、材料摄取、追问、原创性自查、答辩幻灯、
@@ -84,6 +84,20 @@ export interface CodeWalkthroughOptions {
   maxCapturedOutput: number
 }
 
+/**
+ * 自动驾驶：插件在后台把流程推起来，人只在开头选一次意图、过关卡时拍一次板。
+ *
+ * 关掉它就是「纯工具模式」：没有启动选择题，也没有关卡确认，一切靠人和模型对话驱动。
+ */
+export interface AutopilotOptions {
+  /** 总开关（默认开）。 */
+  enabled: boolean
+  /** 目标最多自动跑多少轮（防止跑飞）。 */
+  maxGoalRounds: number
+  /** 模型要过 G1-G4 时，是否必须先由人在审批界面拍板（默认开）。 */
+  gateApproval: boolean
+}
+
 /** 插件配置（全部可选，均有出厂默认值）。 */
 export interface PaperConfig extends GateOptions {
   /** 论文工作区根；缺省从会话 cwd 向上探测 `00-管理/进度台账.md`。 */
@@ -98,6 +112,8 @@ export interface PaperConfig extends GateOptions {
   defense?: Partial<DefenseOptions>
   /** 代码演练（答辩层）。 */
   codeWalkthrough?: Partial<CodeWalkthroughOptions>
+  /** 自动驾驶（后台推进 + 开头一道选择题 + 关卡拍板）。 */
+  autopilot?: Partial<AutopilotOptions>
   /** 相关时把已确认的稳定事实放回上下文。 */
   recall?: Partial<RecallOptions>
 }
@@ -111,6 +127,7 @@ export const PAPER_DEFAULTS: {
   ppt: PptOptions
   defense: DefenseOptions
   codeWalkthrough: CodeWalkthroughOptions
+  autopilot: AutopilotOptions
   recall: RecallOptions
 } = {
   ingest: { maxBytes: 32 * 1024 * 1024, maxChars: 60_000 },
@@ -133,6 +150,7 @@ export const PAPER_DEFAULTS: {
     },
     maxCapturedOutput: 8000,
   },
+  autopilot: { enabled: true, maxGoalRounds: 40, gateApproval: true },
   recall: RECALL_DEFAULTS,
 }
 
@@ -147,6 +165,7 @@ export interface ResolvedPaperConfig {
   readonly ppt: PptOptions
   readonly defense: DefenseOptions
   readonly codeWalkthrough: CodeWalkthroughOptions
+  readonly autopilot: AutopilotOptions
   readonly recall: RecallOptions
   /** 闸门配置：两个开关可选（缺省即由闸门自身按「开」处理），列表均已补全。 */
   readonly gates: GateOptions
@@ -156,7 +175,7 @@ export interface ResolvedPaperConfig {
 export function resolveConfig(config: PaperConfig = {}): ResolvedPaperConfig {
   const {
     workspace, memoryPath,
-    ingest, intake, similarity, stylecheck, ppt, defense, codeWalkthrough, recall,
+    ingest, intake, similarity, stylecheck, ppt, defense, codeWalkthrough, autopilot, recall,
     writingGate, destructiveGate,
     writingIntentPatterns, criteriaMarkers, bypassMarkers, maxQuestions,
     destructiveToolNames, destructiveRules,
@@ -175,6 +194,7 @@ export function resolveConfig(config: PaperConfig = {}): ResolvedPaperConfig {
       ...codeWalkthrough,
       gates: { ...PAPER_DEFAULTS.codeWalkthrough.gates, ...codeWalkthrough?.gates },
     },
+    autopilot: { ...PAPER_DEFAULTS.autopilot, ...autopilot },
     recall: { ...PAPER_DEFAULTS.recall, ...recall },
     gates: {
       ...(writingGate !== undefined ? { writingGate } : {}),
@@ -240,6 +260,13 @@ export const Config: z<PaperConfig> = z.object({
       build: z.array(z.string()),
     })).default(PAPER_DEFAULTS.codeWalkthrough.gates),
     maxCapturedOutput: z.natural().default(PAPER_DEFAULTS.codeWalkthrough.maxCapturedOutput),
+  }),
+
+  // ---- 自动驾驶 ----
+  autopilot: z.object({
+    enabled: z.boolean().default(PAPER_DEFAULTS.autopilot.enabled),
+    maxGoalRounds: z.natural().min(1).default(PAPER_DEFAULTS.autopilot.maxGoalRounds),
+    gateApproval: z.boolean().default(PAPER_DEFAULTS.autopilot.gateApproval),
   }),
 
   // ---- 跨会话事实 ----
