@@ -20,7 +20,7 @@
 从源码安装（想改代码，或本机没有 pnpm）：
 
 ```bash
-git clone https://github.com/Paloma966/dsh-thesis.git && cd dsh-thesis
+git clone https://github.com/booondenz/dsh-thesis.git && cd dsh-thesis
 npm install && npm run build                            # DSH 没有 TS 加载器，必须发布编译后的 JS
 dsh plugin --profile web add "$PWD"                     # 需要 pnpm
 node scripts/install-into-profile.mjs --profile web     # 没有 pnpm 时的兜底

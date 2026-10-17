@@ -20,14 +20,14 @@
     "docs/host-api.md"
   ],
   "license": "MIT",
-  "author": "Paloma966",
+  "author": "booondenz",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Paloma966/dsh-thesis.git"
+    "url": "git+https://github.com/booondenz/dsh-thesis.git"
   },
-  "homepage": "https://github.com/Paloma966/dsh-thesis#readme",
+  "homepage": "https://github.com/booondenz/dsh-thesis#readme",
   "bugs": {
-    "url": "https://github.com/Paloma966/dsh-thesis/issues"
+    "url": "https://github.com/booondenz/dsh-thesis/issues"
   },
   "keywords": [
     "dsh",
