@@ -16,7 +16,9 @@ export class FakeFs implements FileSystem {
   private readonly files = new Map<string, string>()
 
   private key(p: string): string {
-    return nodePath.normalize(p)
+    // 与 dedup-fixtures 同一取舍：生产侧（`findThesisRoot`）用 resolve 得到已解析的
+    // 绝对路径，fixture 也必须用 resolve 做键，否则 POSIX 上会多出进程 cwd 前缀。
+    return nodePath.resolve(p)
   }
 
   get size(): number {

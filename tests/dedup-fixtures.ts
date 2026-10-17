@@ -14,7 +14,10 @@ export class FakeFs implements FileSystem {
   private readonly files = new Map<string, string>()
 
   private key(p: string): string {
-    return nodePath.normalize(p)
+    // 用 resolve 而非 normalize：真实文件服务与 `findThesisRoot` 拿到的都是**已解析**的
+    // 绝对路径。用 normalize 时，POSIX 上 `resolve('C:/thesis/06-论文')` 会带上进程 cwd
+    // 前缀（`/repo/C:/thesis/06-论文`），与 fixture 写入的键对不上，导致向上探测找不到台账。
+    return nodePath.resolve(p)
   }
 
   get size(): number {
