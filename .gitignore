@@ -7,6 +7,8 @@
 /.npm-cache/
 /.host-smoke/
 /.host-verify/
+/.tmp/
+/.prepublish-guard.*
 
 # 插件运行时状态（论文仓库里也会生成，这里只是防误提交）
 .paper/

@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 开发与测试用的版本；Node 24 能直接跑 .ts 测试，且 node:sqlite 无需 flag
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: 构建
+        run: npm run build
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 单元 / 契约测试
+        # 用 shell 展开文件列表，不依赖 Node 的 glob（各版本行为不一致）
+        run: node --test --test-isolation=none tests/*.test.ts tests/*.test.mjs
+
+      - name: 对外表面审计
+        run: npm run audit
+
+      - name: 端到端基准
+        run: npm run test:e2e
+
+      - name: 打包内容自检（不发包）
+        run: npm pack --dry-run
+
+# 说明：`npm run test:host` 与 `test:host-load` 需要本机装有 DSH（会去探测
+# $DSH_HOME / npx 缓存并建 junction），CI 里跑不了，发布前请在本地执行。
+# 这两个失败会直接体现在 prepublish-guard 里：payload 缺失时它只警告不阻断，
+# 所以发版前那一步别省。

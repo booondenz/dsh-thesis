@@ -73,6 +73,7 @@ node scripts/install-into-profile.mjs --profile web     # 没有 pnpm 时的兜�
 | [docs/troubleshooting.md](./docs/troubleshooting.md) | 装了没反应、没弹选择题、PDF/pptx 失败等 |
 | [docs/design.md](./docs/design.md) | 设计文档与 ADR（架构、分层、质量策略、已知边界） |
 | [docs/host-api.md](./docs/host-api.md) | 宿主契约：用到的 DSH 接口与实测行为 |
+| [docs/release.md](./docs/release.md) | 发版：tag → GitHub Actions → npm（含 provenance）|
 
 ## 开发
 
@@ -84,6 +85,9 @@ npm run verify                 # build + typecheck + 全部单测 + 审计 + 端
 
 质量分层：单测/契约、真实场景端到端、真实 cordis 装配、真实 dsh 引擎装载、对外表面审计
 （见 [docs/design.md](./docs/design.md) §9）。
+
+**发版**：打 tag 即发布，由 GitHub Actions 跑构建、校验与 `npm publish --provenance`，
+见 [docs/release.md](./docs/release.md)。
 
 ## 许可
 
