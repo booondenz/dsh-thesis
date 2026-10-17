@@ -48,19 +48,20 @@
     }
   },
   "scripts": {
-    "clean": "node scripts/clean.mjs",
+    "clean": "node scripts/clean.ts",
     "build": "npm run clean && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.test.json",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json",
     "test": "node --test tests/",
-    "test:sandbox": "node --test --test-isolation=none \"tests/**/*.test.ts\" \"tests/**/*.test.mjs\"",
-    "test:e2e": "node tests/e2e/paper-full-flow.mjs",
-    "test:bench": "node tests/e2e/paper-full-flow.mjs",
-    "test:net": "node tests/e2e/paper-lit-real.mjs",
-    "test:host": "node scripts/host-smoke.mjs && node .host-smoke/app/run.mjs",
-    "test:host-load": "node scripts/host-verify.mjs",
-    "audit": "node scripts/audit-surface.mjs",
-    "verify": "npm run build && npm run typecheck && npm run test:sandbox && npm run audit && npm run test:e2e",
-    "prepublishOnly": "node scripts/prepublish-guard.mjs"
+    "test:sandbox": "node --test --test-isolation=none \"tests/**/*.test.ts\"",
+    "test:e2e": "node tests/e2e/paper-full-flow.ts",
+    "test:bench": "node tests/e2e/paper-full-flow.ts",
+    "test:net": "node tests/e2e/paper-lit-real.ts",
+    "test:host": "node scripts/host-smoke.ts && node .host-smoke/app/run.ts",
+    "test:host-load": "node scripts/host-verify.ts",
+    "audit": "node scripts/audit-surface.ts",
+    "verify": "npm run build && npm run typecheck && npm run typecheck:scripts && npm run test:sandbox && npm run audit && npm run test:e2e",
+    "prepublishOnly": "node scripts/prepublish-guard.ts"
   },
   "engines": {
     "node": ">=22.16",

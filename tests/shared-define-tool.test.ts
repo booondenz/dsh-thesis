@@ -3,7 +3,7 @@
  *
  * 这里测的是**离线实现**：它必须把作者侧 DSL 编译成宿主认可的 JSON Schema 子集，
  * 并在参数违规时抛出与宿主同码（`INVALID_ARGS`）的错误。生产环境走宿主自己的
- * `defineTool`，两者的等价性由 `scripts/host-smoke.mjs` 在真实宿主上复核。
+ * `defineTool`，两者的等价性由 `scripts/host-smoke.ts` 在真实宿主上复核。
  */
 
 import { test } from 'node:test'

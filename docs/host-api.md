@@ -705,7 +705,7 @@ for (const [name, range] of Object.entries(manifest.peerDependencies ?? {})) {
   但正解是修 range。
 - **这条门不执行插件代码，也不跑 `--dump-config`**：`--dump-config` 只组合配置树，
   旧 range 也能组合成功。要观察它必须真的启动一次，或者直接用上面的函数判定
-  （本仓库的 `scripts/lib/host-compat.mjs` 就是这么做的，`npm run test:host-load`
+  （本仓库的 `scripts/lib/host-compat.ts` 就是这么做的，`npm run test:host-load`
   会同时检查**本仓库 manifest** 与 **profile 里已安装的那一份**）。
 
 ---

@@ -30,11 +30,13 @@ jobs:
         run: npm run build
 
       - name: 类型检查
-        run: npm run typecheck
+        run: |
+          npm run typecheck
+          npm run typecheck:scripts
 
       - name: 单元 / 契约测试
         # 用 shell 展开文件列表，不依赖 Node 的 glob（各版本行为不一致）
-        run: node --test --test-isolation=none tests/*.test.ts tests/*.test.mjs
+        run: node --test --test-isolation=none tests/*.test.ts
 
       - name: 对外表面审计
         run: npm run audit

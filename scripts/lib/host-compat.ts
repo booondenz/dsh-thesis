@@ -23,7 +23,7 @@ import { pathToFileURL } from 'node:url'
 /**
  * 在候选位置里找一份 DSH 安装（其下应有 `@deepseek-ai/dsh` 与 `@deepseek-ai/dsh-app-boot`）。
  *
- * 候选顺序与 `scripts/host-smoke.mjs` 的农场探测一致：显式环境变量 → `$DSH_HOME`
+ * 候选顺序与 `scripts/host-smoke.ts` 的农场探测一致：显式环境变量 → `$DSH_HOME`
  * 的 profile 兜底目录 → npx 缓存。返回 `undefined` 表示这台机器上没有可用的 DSH。
  *
  * @returns `{ nodeModulesRoot, dshBin, appBootDir }` 或 `undefined`

@@ -4,7 +4,7 @@
  * 这是本仓库最重要的一条集成测试：它不验证任何业务逻辑，只验证「各模块被同一个
  * `apply()` 正确挂上、名字没有漂移、闸门装上了、服务注册了」。
  * 因为没有真实宿主运行时，`definePaperTool` 在这里走离线实现（见
- * `src/shared/define-tool.ts`），真实宿主的兼容性由 `scripts/host-smoke.mjs` 复核。
+ * `src/shared/define-tool.ts`），真实宿主的兼容性由 `scripts/host-smoke.ts` 复核。
  */
 
 import { test } from 'node:test'

@@ -16,7 +16,7 @@
  *   并提供同样的"参数违规 → `INVALID_ARGS`"行为。
  *
  * 编译结果的一致性由两件事兜底：① `tests/shared-define-tool.test.ts` 逐例断言
- * 编译产物；② `scripts/host-smoke.mjs` 在真实 DSH 宿主上注册并执行工具（见 README「开发」）。
+ * 编译产物；② `scripts/host-smoke.ts` 在真实 DSH 宿主上注册并执行工具（见 README「开发」）。
  *
  * @module dsh-thesis/shared/define-tool
  */

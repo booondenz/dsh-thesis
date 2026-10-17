@@ -18,7 +18,7 @@
  * 6. **npm 上包名已被他人占用**：**只警告不阻断**——占位包可能永远不会发实现，
  *    要不要换名是发布者的商业判断，不该由脚本替他决定。
  *
- * 用法：node scripts/prepublish-guard.mjs
+ * 用法：node scripts/prepublish-guard.ts
  *
  * @module dsh-thesis/scripts/prepublish-guard
  */
@@ -27,7 +27,7 @@ import { spawnSync } from 'node:child_process'
 import { closeSync, existsSync, openSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { checkManifestCompatibility } from './lib/host-compat.mjs'
+import { checkManifestCompatibility } from './lib/host-compat.ts'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const problems = []
@@ -134,7 +134,7 @@ if (!existsSync(patchPath)) {
 }
 
 // ---- 4. 宿主兼容性预检：peer range 不满足当前 dsh 运行期 → 装了也会被停用 ----
-// 用宿主自己的 evaluatePluginCompatibility（见 scripts/lib/host-compat.mjs），
+// 用宿主自己的 evaluatePluginCompatibility（见 scripts/lib/host-compat.ts），
 // 因此判据与 DSH 启动时的 preflight 逐字同源。本机没有 DSH 安装时只警告。
 const compatibility = await checkManifestCompatibility(pkg)
 if (compatibility === undefined) {
@@ -146,16 +146,17 @@ if (compatibility === undefined) {
 }
 
 // ---- 5. 验收：逐步跑，不递归调用 npm（npm run verify 的顺序） ----
-step('清理构建产物', ['scripts/clean.mjs'])
+step('清理构建产物', ['scripts/clean.ts'])
 step('tsc 构建', ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.json'])
 step('类型检查（含 tests）', ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.test.json'])
+step('脚本类型检查', ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.scripts.json'])
 // 测试用显式文件列表：Node 24 的 --test 不展开 glob（Windows 下 cmd 也不会展开）。
 const testFiles = readdirSync(join(repoRoot, 'tests'), { withFileTypes: true })
-  .filter(entry => entry.isFile() && /\.test\.(ts|mjs)$/.test(entry.name))
+  .filter(entry => entry.isFile() && /\.test\.ts$/.test(entry.name))
   .map(entry => join('tests', entry.name))
 step('单元/契约测试', ['--test', '--test-isolation=none', ...testFiles])
-step('对外表面审计', ['scripts/audit-surface.mjs'])
-step('端到端基准', ['tests/e2e/paper-full-flow.mjs'])
+step('对外表面审计', ['scripts/audit-surface.ts'])
+step('端到端基准', ['tests/e2e/paper-full-flow.ts'])
 
 // 构建与测试刚跑过，再校验一次 lib/ 与 src/ 是否一一对应（挡住 tsc 孤儿产物）。
 if (existsSync(join(repoRoot, 'lib')) && existsSync(join(repoRoot, 'src'))) {

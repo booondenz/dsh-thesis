@@ -1,7 +1,7 @@
 /**
  * 对外表面审计：把「工具 / 命令 / 技能的名字与元数据」变成可执行断言。
  *
- * 用法：node scripts/audit-surface.mjs        （退出码非 0 即失败）
+ * 用法：node scripts/audit-surface.ts        （退出码非 0 即失败）
  *
  * 检查四件事：
  * 1. **工具契约**：源码里注册的工具名必须**恰好**等于 `EXPECTED_TOOLS`，

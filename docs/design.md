@@ -246,10 +246,10 @@ DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
 1. 声明写成**有下界的 range**：`>=<实测版本> <下一小版本>-0`。
    末尾的 `-0` 不是装饰：`<0.3.0` 在 `includePrerelease: true` 下会把 `0.3.0-rc.1`
    也算进去，`<0.3.0-0` 才是真正的「不跨小版本」。
-2. 判据不自己实现：`scripts/lib/host-compat.mjs` 直接 import 已安装的
+2. 判据不自己实现：`scripts/lib/host-compat.ts` 直接 import 已安装的
    `dsh-app-boot`，用宿主自己的函数判断宿主自己的规则（同源，不会漂移）。
 3. 两处强制执行：`npm run test:host-load`（本仓库 manifest **与已安装副本**两份都查，
-   因为 preflight 读的是后者）与 `prepublishOnly` 的 `scripts/prepublish-guard.mjs`
+   因为 preflight 读的是后者）与 `prepublishOnly` 的 `scripts/prepublish-guard.ts`
    （跨小版本后忘了改声明就发不出去）。
 4. 跨小版本时先跑 `npm run test:host` + `npm run test:host-load`，再改 range 的下界。
 
@@ -331,9 +331,14 @@ DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
 | **真实宿主** | `npm run test:host` | 23 项：真实 cordis + dsh-tools 装配、工具 schema 被真实注册表接受、真实执行工具、宿主拒绝缺参、**闸门在真实 waterfall 上真的注入**、卸载后工具注销 |
 | **真实引擎装载** | `npm run test:host-load` | 13 项：用宿主自己的预检函数判 manifest（本仓库 + 已安装副本）会不会被停用，再用真实 `dsh` 引擎 `--dump-config` 组合 profile 并校验 `Config`；`DSH_HOME` 指向工作区内临时目录，无需放宽权限 |
 | 对外表面审计 | `npm run audit` | 工具/命令/技能契约一致 + 技能命名/BOM 检查，见 §9.3 |
+| 脚本类型检查 | `npm run typecheck:scripts` | `scripts/**` 全部是 `.ts`，用 `tsconfig.scripts.json` 单独检查（`strict: false`：它们是从 JS 迁过来的构建脚本，只求抓错不追求类型完备）|
 | 真实网络（可选） | `npm run test:net` | 真实学术 API 检索 → 收录 → 笔记 |
 
-`npm run verify` = build + typecheck + 单元/契约 + 审计 + 端到端，是主线不变的守门命令。
+`npm run verify` = build + typecheck（src 与 scripts）+ 单元/契约 + 审计 + 端到端，是主线不变的守门命令。
+
+**全部源码与工具链都是 `.ts`**：`src/` 由 `tsc` 编译成 `lib/`（发布产物，`.gitignore` 里），`scripts/`、`tests/`
+由 Node 24 直接执行（type stripping，不需要 ts-node 之类的加载器）。代价是**跑脚本的工具链 Node 需要 ≥ 22.18**，
+而装机运行时不要求（它读 `lib/` 里的 JS）。
 
 ### 9.1 真实场景端到端基准
 
@@ -364,7 +369,7 @@ DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
 
 对外名字（工具名、命令名、技能名）是**契约**：学生与宿主都按名字调用，改名而不改文档
 就是文档骗人，改名而不改测试就是契约失守。这类漂移只靠人工看必然漏，
-故 `scripts/audit-surface.mjs` 把它们固定成断言：**注册集必须恰好等于契约集**，
+故 `scripts/audit-surface.ts` 把它们固定成断言：**注册集必须恰好等于契约集**，
 多一个少一个都失败；技能 frontmatter 的 `name` 必须等于目录名（DSH 按目录名发现技能）；
 `SKILL.md` 不得带 BOM（带 BOM 时宿主解析 frontmatter 返回 undefined，**整个技能被静默忽略**——
 文件明明在、技能却不存在，是最难排查的一类故障）。

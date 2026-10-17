@@ -171,13 +171,55 @@ declare module 'node:path' {
 }
 
 declare module 'node:fs' {
+  export interface Dirent {
+    readonly name: string
+    isFile(): boolean
+    isDirectory(): boolean
+    isSymbolicLink(): boolean
+  }
   export function mkdirSync(path: string, options?: { recursive?: boolean }): string | undefined
   export function mkdtempSync(prefix: string): string
   export function existsSync(path: string): boolean
-  export function statSync(path: string): { readonly size: number; isDirectory(): boolean }
+  export function statSync(path: string): { readonly size: number; isDirectory(): boolean; isFile(): boolean }
+  export function lstatSync(path: string): { isSymbolicLink(): boolean; isDirectory(): boolean }
+  export function readlinkSync(path: string): string
+  export function readFileSync(path: string): any
   export function readFileSync(path: string, encoding: string): string
-  export function writeFileSync(path: string, data: string | Uint8Array): void
+  export function writeFileSync(path: string, data: string | Uint8Array, encoding?: string): void
+  export function readdirSync(path: string): string[]
+  export function readdirSync(path: string, options: { withFileTypes: true }): Dirent[]
   export function rmSync(path: string, options?: { force?: boolean; recursive?: boolean }): void
+  export function openSync(path: string, flags: string): number
+  export function closeSync(fd: number): void
+  export function symlinkSync(target: string, path: string, type?: string): void
+  export function copyFileSync(from: string, to: string): void
+  export function cpSync(from: string, to: string, options?: { recursive?: boolean; force?: boolean }): void
+}
+
+declare module 'node:module' {
+  export interface RequireResolve {
+    (request: string): string
+    paths(request: string): string[] | null
+  }
+  export interface Require {
+    (id: string): any
+    readonly resolve: RequireResolve
+  }
+  export function createRequire(filename: string | URL): Require
+}
+
+declare module 'node:assert/strict' {
+  interface Assert {
+    (value: unknown, message?: string): void
+    equal(actual: unknown, expected: unknown, message?: string): void
+    deepEqual(actual: unknown, expected: unknown, message?: string): void
+    match(value: string, pattern: RegExp, message?: string): void
+    ok(value: unknown, message?: string): void
+    rejects(block: Promise<unknown> | (() => Promise<unknown>), pattern?: RegExp): Promise<void>
+    throws(block: () => unknown, pattern?: RegExp): void
+  }
+  const assert: Assert
+  export default assert
 }
 
 declare module 'node:fs/promises' {
@@ -188,6 +230,7 @@ declare module 'node:fs/promises' {
   export function rm(path: string | URL, options?: { force?: boolean; recursive?: boolean }): Promise<void>
   export function mkdir(path: string | URL, options?: { recursive?: boolean }): Promise<string | undefined>
   export function stat(path: string | URL): Promise<{ isDirectory(): boolean; size: number }>
+  export function cp(from: string | URL, to: string | URL, options?: { recursive?: boolean; force?: boolean }): Promise<void>
 }
 
 declare module 'node:url' {
@@ -208,7 +251,8 @@ declare module 'node:child_process' {
     timeout?: number
     maxBuffer?: number
     /** 受限环境下管道 stdio 可能被拒（EPERM）；插件默认用 'ignore'。 */
-    stdio?: string
+    stdio?: string | readonly (string | number)[]
+    env?: Record<string, string | undefined>
   }): SpawnSyncReturns
 }
 
@@ -305,8 +349,13 @@ declare var TextDecoder: {
 declare var process: {
   readonly pid: number
   readonly platform: string
+  readonly execPath: string
+  readonly argv: string[]
   readonly env: Record<string, string | undefined>
+  readonly stdout: { write(chunk: string): boolean }
+  exitCode: number | undefined
   cwd(): string
+  exit(code?: number): never
 }
 
 /**

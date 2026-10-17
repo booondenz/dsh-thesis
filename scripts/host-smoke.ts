@@ -8,11 +8,11 @@
  *
  * 做法：在 `.host-smoke/app/` 里放一份 `lib/`、`skills/`、`package.json`，
  * 并把 `@deepseek-ai` 以 **junction** 指向本机 DSH 安装农场（Windows 下 junction
- * 不需要管理员权限，也不会改动任何已安装内容），然后在那个目录里跑 `run.mjs`。
+ * 不需要管理员权限，也不会改动任何已安装内容），然后在那个目录里跑 `run.ts`。
  *
  * 用法：
- *   node scripts/host-smoke.mjs                 # 生成 .host-smoke/app/run.mjs
- *   node .host-smoke/app/run.mjs                # 执行真实宿主装配（退出码非 0 即失败）
+ *   node scripts/host-smoke.ts                 # 生成 .host-smoke/app/run.ts
+ *   node .host-smoke/app/run.ts                # 执行真实宿主装配（退出码非 0 即失败）
  *   环境变量 DSH_FARM 可显式指定农场目录（其下应有 @deepseek-ai/dsh-tools）。
  *
  * @module dsh-thesis/scripts/host-smoke
@@ -69,9 +69,9 @@ copyFileSync(join(repoRoot, 'package.json'), join(appRoot, 'package.json'))
 // 宿主的真实依赖树（只读 junction，绝不改动农场）。
 symlinkSync(farm, join(appRoot, 'node_modules', '@deepseek-ai'), 'junction')
 
-writeFileSync(join(appRoot, 'run.mjs'), runnerSource(), 'utf8')
-console.log('[host-smoke] 已生成 .host-smoke/app/run.mjs')
-console.log('[host-smoke] 执行：node .host-smoke/app/run.mjs')
+writeFileSync(join(appRoot, 'run.ts'), runnerSource(), 'utf8')
+console.log('[host-smoke] 已生成 .host-smoke/app/run.ts')
+console.log('[host-smoke] 执行：node .host-smoke/app/run.ts')
 
 /**
  * 冒烟脚本本体。写在 app 目录里，使它解析到 junction 后的真实宿主包。

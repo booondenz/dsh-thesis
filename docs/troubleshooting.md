@@ -21,7 +21,7 @@
 ## 重启后还是旧行为
 
 - `dsh plugin add` 装的是 **npm 上的那一版**，改了源码不重装不会生效；本地开发用
-  `node scripts/install-into-profile.mjs --profile web`（把 profile 指到本仓库，重启生效）。
+  `node scripts/install-into-profile.ts --profile web`（把 profile 指到本仓库，重启生效）。
 - DSH 没有 TS 加载器：**必须先 `npm run build`**（产出 `lib/`），直接指向源码不会工作。
 - 确认改到的是同一个 profile：`--profile web` 要和实际启动参数一致。
 

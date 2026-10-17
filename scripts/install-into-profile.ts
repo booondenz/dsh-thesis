@@ -14,8 +14,8 @@
  *      配置**——那是你的文件，由你复制粘贴，避免脚本擅自改动）。
  *
  * 用法：
- *   node scripts/install-into-profile.mjs --profile web          # 建联接 + 打印补丁片段
- *   node scripts/install-into-profile.mjs --profile web --remove # 移除联接
+ *   node scripts/install-into-profile.ts --profile web          # 建联接 + 打印补丁片段
+ *   node scripts/install-into-profile.ts --profile web --remove # 移除联接
  *
  * 安装后重启 dsh 生效。标准路径（需要 pnpm）：
  *   dsh plugin --profile web add <本仓库路径>
@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 function parseArgs(argv) {
-  const args = { profile: undefined, remove: false }
+  const args = { profile: undefined, remove: false, help: false }
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i]
     if (token === '--profile') args.profile = argv[++i]
@@ -43,7 +43,7 @@ function parseArgs(argv) {
 
 const args = parseArgs(process.argv.slice(2))
 if (args.help === true || args.profile === undefined) {
-  console.log('用法：node scripts/install-into-profile.mjs --profile <name> [--remove]')
+  console.log('用法：node scripts/install-into-profile.ts --profile <name> [--remove]')
   process.exit(args.help === true ? 0 : 1)
 }
 
@@ -113,4 +113,4 @@ console.log('\n验证（重启后任选其一）：')
 console.log('   · 在论文工作区里说一句「帮我做毕业设计」——应先弹出一道选择题（从零走到答辩 / 只补合规与答辩 / 只做答辩准备 / 先别自动跑）；')
 console.log('   · 对着 AI 说「帮我写第三章」——应触发**写作意图闸门**，要求先用 thesis_intake 追问；')
 console.log('   · 问「你现在有哪些论文相关工具」——应报出 thesis_* / fact_* / defense_code_* 三个命名空间。')
-console.log('\n卸载：node scripts/install-into-profile.mjs --profile ' + args.profile + ' --remove（并删掉上面那段 YAML）。')
+console.log('\n卸载：node scripts/install-into-profile.ts --profile ' + args.profile + ' --remove（并删掉上面那段 YAML）。')

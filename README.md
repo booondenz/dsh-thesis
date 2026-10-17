@@ -22,7 +22,7 @@
 git clone https://github.com/booondenz/dsh-thesis.git && cd dsh-thesis
 npm install && npm run build                            # DSH 没有 TS 加载器，必须先编译
 dsh plugin --profile web add "$PWD"                     # 需要 pnpm
-node scripts/install-into-profile.mjs --profile web     # 没有 pnpm 时的兜底
+node scripts/install-into-profile.ts --profile web     # 没有 pnpm 时的兜底
 ```
 
 卸载：插件管理器里移除，或 `dsh plugin --profile web remove dsh-thesis`。
@@ -80,8 +80,11 @@ node scripts/install-into-profile.mjs --profile web     # 没有 pnpm 时的兜�
 ```bash
 npm install && npm run build   # tsc → lib/
 npm test                       # node --test（Node 24 直接跑 .ts）
-npm run verify                 # build + typecheck + 全部单测 + 审计 + 端到端
+npm run verify                 # build + 两个 typecheck + 全部单测 + 审计 + 端到端
 ```
+
+仓库里**没有 JS 源文件**：`src/`、`scripts/`、`tests/` 全是 `.ts`，直接由 Node 执行（需要 Node ≥ 22.18）；
+`lib/` 只是 `tsc` 产物（已 gitignore，发布时作为编译后的 JS 提供）。
 
 质量分层：单测/契约、真实场景端到端、真实 cordis 装配、真实 dsh 引擎装载、对外表面审计
 （见 [docs/design.md](./docs/design.md) §9）。

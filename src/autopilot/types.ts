@@ -3,7 +3,7 @@
  *
  * 与 `codewalk/host-types.ts` 同一取舍：不在插件里 import `@deepseek-ai/dsh-agent` /
  * `-goal` / `-user-questions`，离线单测才能在没有宿主包树的环境里跑；
- * 真实宿主那边由 `scripts/host-smoke.mjs` 复核。
+ * 真实宿主那边由 `scripts/host-smoke.ts` 复核。
  *
  * @module dsh-thesis/autopilot
  */

@@ -1,6 +1,6 @@
 /**
  * 真实网络端到端（不属于单元测试套件，手动运行）：
- *   node tests/e2e-lit-real.mjs
+ *   node tests/e2e/paper-lit-real.ts
  *
  * 用真实磁盘 + 真实学术 API，跑完整文献流程：
  * init → thesis_lit_search（真实检索）→ save（真实入库）→ note。

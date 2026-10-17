@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "rootDir": ".",
+    "strict": false,
+    "noUncheckedIndexedAccess": false
+  },
+  "include": [
+    "scripts/**/*.ts",
+    "src/types/shims.d.ts"
+  ]
+}

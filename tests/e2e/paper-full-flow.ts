@@ -1,7 +1,7 @@
 /**
  * 真实场景端到端基准（DESIGN-v3.md §6.1，手动运行、**不需要网络**）：
  *
- *   node tests/e2e/paper-full-flow.mjs
+ *   node tests/e2e/paper-full-flow.ts
  *
  * 用仓库内置的真实形态材料夹具（`tests/e2e/fixtures/jiangzhou-thesis/`，一所虚构学校，
  * 形态与真实学校文件一致）在**真实临时目录**上跑完整流程，并逐环断言产物：

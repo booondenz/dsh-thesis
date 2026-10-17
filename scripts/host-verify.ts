@@ -1,7 +1,7 @@
 /**
  * 真实宿主**装载**验证（docs/design.md §6.2）。
  *
- * 与 `scripts/host-smoke.mjs` 的分工：
+ * 与 `scripts/host-smoke.ts` 的分工：
  * - `host-smoke` 用真实 cordis 直接 `ctx.plugin()`，验证工具 schema / 服务 / 卸载；
  * - 本脚本走**真实 dsh 引擎的装载路径**，验证两件只有引擎才能回答的事：
  *
@@ -21,7 +21,7 @@
  * 变成写用户目录。改成工作区内的临时 home 后，本脚本既不需要任何额外权限，
  * 又仍然跑的是**同一个引擎、同一套默认 bundle**，只是不与用户的 profile 状态耦合。
  *
- * 用法：node scripts/host-verify.mjs
+ * 用法：node scripts/host-verify.ts
  * 退出码非 0 即失败。
  *
  * @module dsh-thesis/scripts/host-verify
@@ -32,7 +32,7 @@ import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, openSync, closeSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { findDshInstall, loadHostCompatibility } from './lib/host-compat.mjs'
+import { findDshInstall, loadHostCompatibility } from './lib/host-compat.ts'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const tmpRoot = join(repoRoot, '.host-verify')
