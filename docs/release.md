@@ -18,6 +18,14 @@
    | Workflow filename | `publish.yml`（只写文件名，不带路径）|
    | Environment name | **留空**（除非 workflow 里写了 `environment:`）|
 
+   同一页下方的 **Allowed actions**：
+
+   | 选项 | 勾不勾 | 为什么 |
+   |---|---|---|
+   | stage publish | 强制，改不了 | — |
+   | **Allow publish directly** | **勾上** | 不勾的话 `npm publish` 会被拒，只接受 `npm stage publish`，每次发版还得你到网页上做 2FA 批准 |
+   | Allow npm dist-tag | 不用勾 | `npm publish` 会自动把 `latest` 指过去；我们没有 `npm dist-tag` 操作 |
+
 2. 确认仓库是 **public**：私有仓库发不出 provenance。
 3. 不需要 `NPM_TOKEN`，**之前建过的话建议在 Settings → Secrets 里删掉**，免得以后误用。
 
@@ -103,6 +111,7 @@ Actions → publish → Run workflow：只做打包预览，**不会发布**。�
 | 现象 | 原因 |
 |---|---|
 | `EOTP` / `This operation requires a one-time password` | 用的是需要 OTP 的 token（2FA 账号的 Granular / Publish token）。CI 里没人能输 OTP：改用可信发布，或换 Classic → Automation token |
+| 发布被拒，提示只能 `npm stage publish` | 可信发布里没勾 **Allow publish directly**（默认只允许 stage）|
 | `401 Unauthorized` | token 过期（Automation token 有 90/180 天寿命），或可信发布配置里 workflow 文件名写错 |
 | `npm ci … not in sync` | 改了 `package.json` 的依赖/peer 却没跑 `npm install --package-lock-only` |
 | `403 … cannot publish over previously published version` | 版本号没升；这条在 workflow 里已被「已存在则跳过」挡住，手动发版时要注意 |
