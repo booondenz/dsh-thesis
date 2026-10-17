@@ -26,9 +26,13 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          registry-url: https://registry.npmjs.org
+          # 不要设 registry-url：它会在 .npmrc 里写 _authToken=${NODE_AUTH_TOKEN}，
+          # 可信发布没有这个变量，npm 会因为替换失败而报错。
 
       - run: npm ci
+
+      - name: npm 版本（可信发布要求 >= 11.5.1）
+        run: npm --version
 
       - name: 读版本号
         id: meta
@@ -63,13 +67,12 @@ jobs:
       - name: 打包预览（发布前先看内容）
         run: npm pack --dry-run
 
-      - name: 发布到 npm
+      - name: 发布到 npm（OIDC 可信发布，不使用 token）
         if: startsWith(github.ref, 'refs/tags/') && steps.exists.outputs.published == 'false'
         # prepublishOnly 会跑 prepublish-guard（构建 + 类型 + 测试 + 审计 + 端到端）。
-        # --provenance 让 npm 页面显示「由这个仓库的这次 workflow 构建」。
-        run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # 认证走 GitHub OIDC：npm 侧配置「Trusted Publisher」指向本仓库与 publish.yml，
+        # 因此不需要 NPM_TOKEN，也不会有 2FA/OTP 问题；provenance 由 npm 自动生成。
+        run: npm publish --access public
 
       - name: GitHub Release
         if: startsWith(github.ref, 'refs/tags/') && steps.exists.outputs.published == 'false'
