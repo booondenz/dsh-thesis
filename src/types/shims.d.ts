@@ -1,7 +1,7 @@
 /**
  * 开发期类型声明（shims）——dsh-thesis 的唯一类型来源之一。
  *
- * 设计取舍（记录在 DESIGN.md ADR-8）：
+ * 设计取舍（记录在 docs/design.md ADR-8）：
  * 运行期这些能力全部来自 DSH 安装本体的真实包（cordis / dsh-tools / dsh-fs /
  * dsh-agent / dsh-llm），由 profile 的扁平 node_modules 解析；
  * 本文件只在**编译期**提供插件实际使用到的最小表面，使本仓库不依赖任何

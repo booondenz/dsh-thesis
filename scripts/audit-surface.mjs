@@ -43,7 +43,7 @@ const EXPECTED_TOOLS = [
 
 /**
  * 命令契约：**一条都没有**。插件不再提供人用命令行，改由自动驾驶在论文工作区里
- * 自己把流程推起来（`src/autopilot/`，DESIGN.md ADR-15）。
+ * 自己把流程推起来（`src/autopilot/`，docs/design.md ADR-15）。
  */
 const EXPECTED_COMMANDS = []
 

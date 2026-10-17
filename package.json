@@ -15,9 +15,8 @@
     "skills",
     "cordis.patch.yml",
     "README.md",
-    "DESIGN.md",
     "NOTICE.md",
-    "docs/host-api.md"
+    "docs"
   ],
   "license": "MIT",
   "author": "booondenz",

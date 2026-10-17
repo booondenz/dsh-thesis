@@ -34,7 +34,7 @@ export type IntakeAffect =
   | '答辩问答'
   | '文献检索'
 
-/** 每个产出物由哪些工具兑现（工具名是契约，见 DESIGN.md §5）。 */
+/** 每个产出物由哪些工具兑现（工具名是契约，见 docs/design.md §5）。 */
 export const AFFECT_TOOLS: Readonly<Record<IntakeAffect, readonly string[]>> = {
   格式检查: ['thesis_check'],
   引用规范: ['thesis_lit_search', 'thesis_lit_save', 'thesis_lit_note', 'thesis_check'],

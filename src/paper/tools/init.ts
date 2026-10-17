@@ -1,5 +1,5 @@
 /**
- * thesis_init：一键生成论文工作区（DESIGN.md §5 目录结构 + 技能包 + git 初始化）。
+ * thesis_init：一键生成论文工作区（docs/design.md §5 目录结构 + 技能包 + git 初始化）。
  *
  * 校验规则：
  * - root 必须是绝对路径；

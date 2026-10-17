@@ -1,4 +1,7 @@
-# dsh-thesis 设计文档
+# 设计文档
+
+> 这是 dsh-thesis 的设计与决策记录（ADR）。**怎么用**看 [usage.md](./usage.md)，
+> **字段怎么填**看 [config.md](./config.md)，**工具叫什么**看 [tools.md](./tools.md)。
 
 **一句话**：让一个对流程不了解的本科生，把「学校模板 + 论文要求 + 实验数据 + 代码 + 参考文献」这堆材料，
 在 AI 的带教下变成**一篇真实系统与真实数据背书、符合学校规范、经得起查重与答辩的论文**，
@@ -83,43 +86,12 @@
 
 ### 3.1 工具（21 个，三个命名空间）
 
-**`thesis_*`：操作论文工作区里的东西**
+`thesis_*` / `defense_code_*` / `fact_*` 三组，名字即契约（改名就是破坏性变更）。
+**逐个工具的用途、参数与边界见 [tools.md](./tools.md)**，这里只保留设计约束：
 
-| 工具 | 学生视角的一句话 |
-|---|---|
-| `thesis_ingest` | 把我的材料读进来（docx/xlsx/pptx/pdf/csv/代码 → 文本与结构摘要 + 材料清单） |
-| `thesis_intake` | 一次问我一个要求问题，问完写成《意图规格》 |
-| `thesis_init` | 建论文工作区（目录、台账、决定日志、七章模板、技能包） |
-| `thesis_progress` | 看进度 / 过闸门 G1-G4 |
-| `thesis_decide` | 记下我为什么这么定（答辩要用的证据） |
-| `thesis_lit_search` / `thesis_lit_save` / `thesis_lit_note` | 真实检索文献 / 收录进 refs.bib / 生成阅读笔记 |
-| `thesis_review` | 单章六项评审（字数、大纲、引用、图表编号、未完成标记、G2 清单） |
-| `thesis_check` | 全文五项检查（引用双向一致、字数、编号、术语、学校模板探测） |
-| `thesis_stylecheck` | 写作风格自查（六条启发式，附行号与改写建议） |
-| `thesis_build` | 出论文 `.docx`（优先 pandoc + 学校模板，无 pandoc 用内置零依赖生成器） |
-| `thesis_originality` | 原创性自查：scan 定位高风险段落 → verify 复测降幅 → report 汇总 |
-
-**`thesis_*` 的答辩部分**
-
-| 工具 | 学生视角的一句话 |
-|---|---|
-| `thesis_defense` | 提取答辩素材 + 六类必问问题库（附证据锚点） |
-| `thesis_slides` | 生成 10-12 页 Marp 幻灯，并可选转换为 `.pptx` |
-
-**`defense_code_*`：代码演练（答辩层）**
-
-| 工具 | 学生视角的一句话 |
-|---|---|
-| `defense_code_status` | 我的系统我讲得清吗（阶段、里程碑、验证门、未通过的问题） |
-| `defense_code_next` | 下一个该弄懂的模块（含 todo 与评分要点） |
-| `defense_code_update` | 登记/推进/评分/重试（每次改动立即落盘） |
-
-**`fact_*`：跨会话事实**
-
-| 工具 | 学生视角的一句话 |
-|---|---|
-| `fact_search` / `fact_remember` / `fact_context` | 上次记下的学校规范还在吗 / 记住这条稳定事实 / 把这个课题已知事实拉回来 |
-
+- 工具名与命名空间不允许游离：`npm run audit` 断言注册数恰好 21、且全落在三个前缀内；
+- 每个工具都必须有 `output.schema` 与 `output.render`，返回值是**有界字符串**（不返回对象、不做流式）；
+- 工具只操作论文工作区里的东西，跨会话的东西一律走 `fact_*`，两者不混用。
 ### 3.2 命令面：**一条斜杠命令都没有**
 
 `ctx.commands` 一次都不注册。人不再操作命令行，入口换成两条宿主事件：
@@ -138,31 +110,16 @@
 ## 4. 配置契约
 
 所有字段都有出厂默认值，`PAPER_DEFAULTS` 是 schema `.default()` 与代码侧回退的**单一来源**
-（绝不让「缺配置」退化成「静默关闸门」）。配置面只用论文领域词汇：
+（绝不让「缺配置」退化成「静默关闸门」）。配置面只用论文领域词汇，不引入别的概念体系。
 
-```ts
-export interface PaperConfig extends GateOptions {
-  workspace?: string                 // 缺省从会话 cwd 向上探测 00-管理/进度台账.md
-  memoryPath?: string                // 缺省 $DSH_HOME/paper-memory.db
-  ingest?: Partial<IngestOptions>
-  intake?: Partial<IntakeOptions>
-  similarity?: Partial<SimilarityOptions>
-  stylecheck?: Partial<StylecheckOptions>
-  ppt?: Partial<PptOptions>
-  defense?: Partial<DefenseOptions>
-  codeWalkthrough?: Partial<CodeWalkthroughOptions>
-  recall?: Partial<RecallOptions>
-}
-```
+**字段清单、默认值、取值范围与 YAML 示例见 [config.md](./config.md)。**
 
-`GateOptions` 管两个闸门：`writingGate`（要求没立稳时拦截「开始写」）、
-`destructiveGate`（不可逆命令前提请人类拍板），以及它们各自的模式列表与 `maxQuestions`。
+两条设计约束（写在这里是因为它们属于架构决定，不属于字段说明）：
 
-**`workspace` 的语义是确定的**：配置了就只认它；该路径下没有台账时**明确报错**，
-绝不悄悄退回到 cwd 探测去写到别的目录。
-
----
-
+1. 新增字段必须同时进 `Config`（schemastery schema）、`PAPER_DEFAULTS`、`resolveConfig` 三处，
+   缺一处就会被 `npm run test:sandbox` 的「默认值来源一致」用例抓住；
+2. 开关的默认值必须是**开**：缺配置绝不能等于关闸门（`writingGate` / `destructiveGate` /
+   `autopilot.gateApproval` 都遵守这条）。
 ## 5. 领域闭环：要求与被约束的产出物必须可达
 
 追问问题声明它影响哪些产出物：`affects: IntakeAffect[]`。这不是描述性文字，
@@ -430,7 +387,7 @@ DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
 5. **代码演练内置语言矩阵只覆盖 Go/TS/Python/Rust**，其余语言需在配置里补 `gates`。
 6. **子进程不可取消**：pandoc/marp/git 走 `spawnSync`，有超时上限，但 `exec.signal` 不进入子进程。
 7. **受限环境下管道 stdio 被拒**：某些沙箱里 `stdio: 'pipe'` 会 `EPERM`，故默认 `stdio: 'ignore'`。
-8. **宿主契约以本地 shim 声明**：真实签名核对见 [docs/host-api.md](./docs/host-api.md)，
+8. **宿主契约以本地 shim 声明**：真实签名核对见 [host-api.md](./host-api.md)，
    运行时行为由端到端基准与真实宿主冒烟兜底。
 9. **真实 `dsh` 引擎的装载验证需要写 `$DSH_HOME/profiles/<name>/cordis.yml`**（引擎在
    `--dump-config` 前就会写它）。受限沙箱下该写入会被拒，`npm run test:host-load` 因此需要放宽文件权限；

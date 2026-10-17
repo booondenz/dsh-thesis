@@ -30,7 +30,7 @@ const EXPECTED_TOOLS = [
 
 /**
  * 斜杠命令全集：**一条都没有**。插件不再提供人用命令行，改由自动驾驶在
- * 论文工作区里自己把流程推起来（`src/autopilot/`，DESIGN.md ADR-15）。
+ * 论文工作区里自己把流程推起来（`src/autopilot/`，docs/design.md ADR-15）。
  */
 const EXPECTED_COMMANDS: readonly string[] = []
 

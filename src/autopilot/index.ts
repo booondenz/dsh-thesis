@@ -26,9 +26,6 @@ import { choiceOfLabel, INTENT_QUESTION_ID, intentQuestion, type IntentChoice } 
 import { gateApprovalReason, makeAutopilotMessage } from './messages.ts'
 import type { AutopilotAnswerItem, AutopilotAgent, GoalsService, UserQuestionsService } from './types.ts'
 
-/** 一轮自动跑最多开多少轮（防止跑飞；宿主 goal-round-driver 按它封顶）。 */
-export const DEFAULT_MAX_GOAL_ROUNDS = 40
-
 /** 一个 agent 的委派深度：与宿主 `delegationDepthOf` 同一条规则（头里的深度只增不减）。 */
 export function agentDepth(agent: AutopilotAgent): number {
   const fromHeader = agent.session?.header?.subagentDepth ?? 0

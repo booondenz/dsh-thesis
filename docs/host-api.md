@@ -1,10 +1,10 @@
-# DSH 第三方插件宿主 API 参考（0.1.5-rc.1）
+# DSH 第三方插件宿主 API 参考
 
 > **版本与兼容**：本文的签名摘自已安装产物，最初对着 **dsh 0.1.5-rc.1** 记录；
 > 已用 **dsh 0.2.0-rc.2** 重新核对本插件实际用到的每一处（`defineTool` 的 DSL、
 > `ctx.tools.register`、`agent/pre-step` 与 `tools/pre-execute` 的 waterfall、
-> `ctx.commands.register`、`ctx.skills.registerProvider`、`ctx.shell` /
-> `ctx.sandboxPolicy`），结论是契约未变。
+> `ctx.skills.registerProvider`、`ctx.shell` / `ctx.sandboxPolicy`，以及自动驾驶用到的
+> `ctx.userQuestions` / `ctx.goals` / 委派深度，见 §6.4），结论是契约未变。
 > **唯一真正会挡住装载的不是 API，而是 manifest 的 peer range**——见 §7.7。
 
 只记录契约：签名、类型、事件名、注册与加载规则。签名逐字摘自已安装产物的 `lib/types/**/*.d.ts` 与 `lib/*.js`，
@@ -290,6 +290,9 @@ class FsError extends HarnessError { readonly code: FsErrorCode; constructor(mes
 
 ## 4. 人类斜杠命令：`@deepseek-ai/dsh-commands`
 
+> **本插件不用这一节**：dsh-thesis 2.x 一条斜杠命令都不注册（入口是 §6.4 的自动驾驶）。
+> 保留这一节是因为宿主契约本身没变，别的插件可能用得上。
+
 ```ts
 ctx.commands.register(definition: CommandDefinition): () => void
 
@@ -524,6 +527,39 @@ type PostToolDecision =
 会话日志事件（`SessionEventMap`，经 `ctx.on('session/event', ...)` 观测）：`turn/start`、`turn/end`、`step/start`、`step/end`、
 `user/message`、`system/message`、`assistant/message`、`assistant/attempt`、`tool/call`、`tool/result`。
 所有带 `this: Scoped<Agent>` / `Scoped<ToolRuntime>` 的事件都按 agent 作用域过滤派发。
+
+### 6.4 自动驾驶用到的四处契约（`thesis 2.x`）
+
+插件不再注册命令，改为在 `agent/pre-step` 上主动把流程推起来。它依赖下面四处能力，
+**每一处都是可选的**（缺失即降级，不抛错）：
+
+```ts
+// 1) pre-step 的 payload 带 agent 本身（不只是 messages）
+'agent/pre-step'(payload: { agent: Agent; messages: UserMessage[]; turn: number; step: number; signal: AbortSignal }): ...
+
+// 2) 问人：结构化选项 + 结构化答案；不需要 tool call id
+ctx.userQuestions.ask({ questions: AskUserQuestionItem[], agent?: Agent, signal?: AbortSignal })
+  : Promise<{ answers: { id: string; selected: string[]; custom?: string }[] }>
+interface AskUserQuestionItem { id: string; question: string; header?: string; detail?: string
+  options?: { label: string; description?: string }[]; multiSelect?: boolean }
+
+// 3) 建目标：宿主的目标轮驱动器（`dsh-goal-round-driver`）会渲染续跑提示并调 agent.followup()
+ctx.goals.create(agent: Agent, request: { objective: string; maxGoalRounds?: number }): GoalView
+
+// 4) 委派深度：子 agent 的会话头里 subagentDepth > 0，据此只对主 agent 生效
+delegationDepthOf(agent) = max(agent.session.header.subagentDepth ?? 0, agent.options.subagentDepth ?? 0)
+```
+
+两条实测结论：
+
+- `ctx.userQuestions.ask` 的 **answerer 是 UI 侧的 waterfall**（`user-questions/request`）。
+  传了 `agent` 时它只接受**活的 runtime root**（`CALLER_NOT_LIVE` / `DELEGATED_CALLER` / `NO_PROVIDER`
+  都是可能结果），所以插件把「问不到答案」当作正常退化，而不是错误。
+- `askTimed(request, callId, timeoutMs)` 需要**工具调用 id**，插件侧拿不到；因此插件只用 `ask`，
+  并接受「用户不答就挂住这一轮、按停止键即取消」的行为。
+
+未在真实 agent 会话里验证过的一点：**没有 tool call 承载的问题卡片能否被 Web UI 渲染**。
+若不能，日志会写 `意图选择题没有拿到答案`，插件退化为单轮，不阻塞对话。
 
 ---
 

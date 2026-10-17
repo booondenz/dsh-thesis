@@ -1,5 +1,5 @@
 /**
- * 真实宿主**装载**验证（DESIGN.md §6.2）。
+ * 真实宿主**装载**验证（docs/design.md §6.2）。
  *
  * 与 `scripts/host-smoke.mjs` 的分工：
  * - `host-smoke` 用真实 cordis 直接 `ctx.plugin()`，验证工具 schema / 服务 / 卸载；
