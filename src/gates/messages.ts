@@ -1,8 +1,10 @@
 /**
  * 闸门注入消息与决策理由的模板。
  *
- * 注入消息的 source 采用 `{ kind: 'plugin', plugin: 'dsh-thesis', form: 'instructions' }`：
- * - `plugin` 是生产者标识（GUI 用它做行首标签，也用于防重入识别"这已经是闸门消息"）；
+ * 注入消息的 source 采用 `{ kind: 'plugin:dsh-thesis', form: 'instructions' }`：
+ * - `kind` 是生产者自有标识。v4 会话格式禁止共享兜底 kind `plugin`，否则写会话日志
+ *   时直接抛 `format v4 message requires a producer-owned source kind`（见
+ *   `shared/message-source.ts`）；
  * - `form` 声明这条上下文的语义形态（当前契约的取值域：instructions / catalog /
  *   snapshot / notice / relay / recall）；
  * - **不带 `sections`**：`sections` 只属于 `snapshot` 形态（见
@@ -18,12 +20,13 @@
 
 import { randomUUID } from 'node:crypto'
 import type { UserMessage } from '@deepseek-ai/dsh-llm'
+import { THESIS_SOURCE } from '../shared/message-source.ts'
 
-/** 插件标识：注入消息 source.plugin 的值。 */
-export const PLUGIN_ID = 'dsh-thesis'
+/** 插件标识：注入消息 source 的命名来源。 */
+export { PLUGIN_ID } from '../shared/message-source.ts'
 
 /** 注入消息的 source 基础形状（form 由调用方补充）。 */
-export const PLUGIN_SOURCE = { kind: 'plugin', plugin: PLUGIN_ID } as const
+export const PLUGIN_SOURCE = THESIS_SOURCE
 
 /**
  * 写作意图闸门注入给模型的指令。

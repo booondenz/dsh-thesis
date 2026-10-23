@@ -101,8 +101,8 @@ export interface InjectedUserMessageShape {
   readonly role: 'user'
   readonly content: readonly TextBlockShape[]
   readonly source: {
-    readonly kind: 'plugin'
-    readonly plugin: string
+    /** 生产者自有 kind（本插件是 `plugin:dsh-thesis`）；v4 会话格式不接受兜底值 `plugin`。 */
+    readonly kind: string
     /** 上下文形态：instructions / catalog / snapshot / notice / relay / recall（可缺省 = 不透明）。 */
     readonly form?: string
     /** 只有 `form: 'snapshot'` 携带分节；`instructions` 形态的有效字段是 `changes`。 */

@@ -11,6 +11,8 @@
  * @module dsh-thesis/intake/gate-rules
  */
 
+import { THESIS_SOURCE } from '../shared/message-source.ts'
+
 /** 「要开始写正文/开题报告」的意图模式（中英文）。 */
 const WRITING_INTENT_PATTERNS: readonly RegExp[] = [
   // 中文：写/生成/起草 + 论文/正文/章节/开题/中期
@@ -127,7 +129,7 @@ export function makeIntakeGateMessage(status: SpecStatus, specRel: string, id: s
   id: string
   role: 'user'
   content: Array<{ type: 'text'; text: string }>
-  source: { kind: string; plugin: string; form: string }
+  source: { kind: string; form: 'instructions' }
 } {
   const text = intakeGateInstruction(status, specRel)
   return {
@@ -135,8 +137,7 @@ export function makeIntakeGateMessage(status: SpecStatus, specRel: string, id: s
     role: 'user',
     content: [{ type: 'text', text }],
     source: {
-      kind: 'plugin',
-      plugin: 'dsh-thesis',
+      ...THESIS_SOURCE,
       form: 'instructions',
     },
   }

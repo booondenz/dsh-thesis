@@ -19,6 +19,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { randomUUID } from 'node:crypto'
 import { textOfBlocks } from '../shared/text.ts'
+import { THESIS_SOURCE } from '../shared/message-source.ts'
 import type { MemoryEntry, MemoryService } from './service.ts'
 
 /** 记忆回灌参数。 */
@@ -127,7 +128,7 @@ export function makeRecallMessage(entries: readonly MemoryEntry[], maxChars: num
   id: string
   role: 'user'
   content: Array<{ type: 'text'; text: string }>
-  source: { kind: string; plugin: string; form: string; sections: Array<{ name: string; text: string }> }
+  source: { kind: string; form: 'snapshot'; sections: Array<{ name: string; text: string }> }
 } {
   const text = renderRecallCard(entries, maxChars)
   return {
@@ -135,8 +136,7 @@ export function makeRecallMessage(entries: readonly MemoryEntry[], maxChars: num
     role: 'user',
     content: [{ type: 'text', text }],
     source: {
-      kind: 'plugin',
-      plugin: 'dsh-thesis',
+      ...THESIS_SOURCE,
       form: 'snapshot',
       sections: [{ name: '已确认事实', text }],
     },

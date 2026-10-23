@@ -1,4 +1,4 @@
-﻿/**
+/**
  * pre-step 注入测试：只在存在进行中的演练时注入进度卡片，且状态未变化时不重复
  * 注入（避免每个 step 都烧 token），训练完成后彻底停止注入。
  *
@@ -73,7 +73,7 @@ describe('pre-step 进度注入', () => {
     const message = decision.messages[0]!
     assert.equal(message.role, 'user')
     assert.match(message.content[0]!.text, /代码演练/)
-    assert.equal(message.source.plugin, 'dsh-thesis')
+    assert.equal(message.source.kind, 'plugin:dsh-thesis')
     assert.equal(message.source.sections[0]!.name, '代码演练进度')
   })
 

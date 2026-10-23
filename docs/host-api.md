@@ -436,7 +436,14 @@ type PreStepDecision = { kind: 'reject' } | { kind: 'enter'; messages: UserMessa
 
 `next()` 保持当前 messages；返回值替换进入该步骤的消息，或拒绝该步骤（mode `waterfall`，按 agent 作用域过滤派发）。
 注入物必须是 `UserMessage`：`{ id, role: 'user', content: ContentBlock[], source }`，`source` 用
-`{ kind: 'plugin', plugin: '<name>' } & ContextFormed`（`form: 'instructions' | 'catalog' | 'snapshot' | 'notice' | 'relay' | 'recall'`）。
+`{ kind: 'plugin:<name>' } & ContextFormed`（`form: 'instructions' | 'catalog' | 'snapshot' | 'notice' | 'relay' | 'recall'`）。
+
+> **`kind` 必须是生产者自有值。** 从 v4 会话格式起，共享兜底 kind `plugin` 会被直接拒写：
+> `format v4 message requires a producer-owned source kind`，而且是在落会话日志时抛，
+> 整条会话起不来。第三方插件的规范写法是 `plugin:<包名>`——宿主的 v3→v4 迁移器
+> （`@deepseek-ai/dsh-session-format-v3-to-v4` 的 `producerKind`）给未知生产者生成的就是它，
+> 这样旧会话迁移后与新消息同源同 kind。本插件踩过：2.0.1 用了 `kind: 'plugin'`，
+> 论文工作区里的新会话一开就报上面那句。
 `form` 决定客户端怎么渲染，且**每个形态只带自己那几个字段**（`ContextFormed` 是判别联合）：
 `sections` 只属于 `snapshot`，`summary` 只属于 `notice`，`instructions` 的渲染依据是
 `changes`（工作区指令文件的改动清单，见 `dsh-agent-instructions`）。
@@ -459,7 +466,7 @@ export function registerPreStep(ctx: Context, buildCard: (cwd: string) => Promis
       kind: 'enter',
       messages: [...decision.messages, {
         id: randomUUID(), role: 'user', content: [{ type: 'text', text: note }],
-        source: { kind: 'plugin', plugin: 'my-plugin', form: 'snapshot', sections: [{ name: 'my-plugin', text: note }] },
+        source: { kind: 'plugin:my-plugin', form: 'snapshot', sections: [{ name: 'my-plugin', text: note }] },
       }],
     }
   }, { prepend: true })

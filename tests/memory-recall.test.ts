@@ -63,7 +63,7 @@ test('卡片渲染：有界、带"可能过时"声明、超限时给查询提示
 
   const message = makeRecallMessage(entries, 600)
   assert.equal(message.role, 'user')
-  assert.equal(message.source.plugin, 'dsh-thesis')
+  assert.equal(message.source.kind, 'plugin:dsh-thesis')
   assert.equal(message.source.form, 'snapshot')
   assert.equal(message.source.sections[0]!.name, '已确认事实')
 })
@@ -98,8 +98,8 @@ test('hook：用户消息与记忆相关 → 注入一张卡片', async () => {
   const host = boot([entry('school.dedup.system', '知网，查重阈值 20%', 10)])
   const decision = await host.listener!(userPayload('帮我确认一下学校的查重阈值'), enterNext)
   assert.equal(decision.messages!.length, 2)
-  const injected = decision.messages![1] as { source: { plugin: string } }
-  assert.equal(injected.source.plugin, 'dsh-thesis')
+  const injected = decision.messages![1] as { source: { kind: string } }
+  assert.equal(injected.source.kind, 'plugin:dsh-thesis')
 })
 
 test('hook：不相关 → 不注入；没有记忆 → 不注入；斜杠命令 → 不注入', async () => {

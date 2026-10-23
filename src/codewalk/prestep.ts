@@ -13,6 +13,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { AiLearningEngine } from './engine.ts'
 import { newMessageId } from './tools.ts'
 import type { InjectedUserMessageShape, PreStepDecisionShape, PreStepPayloadShape } from './host-types.ts'
+import { THESIS_SOURCE } from '../shared/message-source.ts'
 
 /** 为一份状态快照构造注入用的进度消息。 */
 export function buildProgressMessage(state: Awaited<ReturnType<AiLearningEngine['load']>> & object): InjectedUserMessageShape {
@@ -28,8 +29,7 @@ export function buildProgressMessage(state: Awaited<ReturnType<AiLearningEngine[
     role: 'user',
     content: [{ type: 'text', text: full }],
     source: {
-      kind: 'plugin',
-      plugin: 'dsh-thesis',
+      ...THESIS_SOURCE,
       form: 'snapshot',
       sections: [{ name: '代码演练进度', text: full }],
     },

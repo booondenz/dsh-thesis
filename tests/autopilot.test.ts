@@ -139,7 +139,7 @@ test('论文工作区 + 主 agent + 没有意图规格：问一次、记日志�
   assert.equal(h.asked.length, 1, '只问一次')
   assert.equal(decision.kind, 'enter')
   assert.equal(decision.messages.length, 1, '注入一条启动指令')
-  assert.equal(decision.messages[0].source.plugin, 'dsh-thesis')
+  assert.equal(decision.messages[0].source.kind, 'plugin:dsh-thesis')
   assert.equal(decision.messages[0].source.form, 'instructions')
   assert.match(decision.messages[0].content[0].text, /自动驾驶/)
   assert.equal(h.goals.length, 1)

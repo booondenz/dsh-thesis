@@ -134,8 +134,8 @@ test('闸门：写作意图 + 规格缺失 → 注入一条插件消息', async 
   const decision = await host.listener!(userPayload('C:/paper-ws/06-论文', '帮我写第三章'), enterNext)
   assert.equal(decision.kind, 'enter')
   assert.equal(decision.messages!.length, 2, '原始消息 + 注入消息')
-  const injected = decision.messages![1] as { source: { plugin: string }; content: Array<{ text: string }> }
-  assert.equal(injected.source.plugin, 'dsh-thesis')
+  const injected = decision.messages![1] as { source: { kind: string }; content: Array<{ text: string }> }
+  assert.equal(injected.source.kind, 'plugin:dsh-thesis')
   assert.match(injected.content[0]!.text, /意图规格闸门/)
 })
 

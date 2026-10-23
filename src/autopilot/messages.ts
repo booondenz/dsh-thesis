@@ -1,7 +1,8 @@
 /**
  * 自动驾驶注入的消息与关卡确认文案。
  *
- * 与闸门消息共用同一条 source 约定：`{ kind: 'plugin', plugin: 'dsh-thesis', form: 'instructions' }`。
+ * 与闸门消息共用同一条 source 约定：`{ kind: 'plugin:dsh-thesis', form: 'instructions' }`
+ * （v4 会话格式禁止兜底 kind `plugin`，见 `shared/message-source.ts`）。
  * `form` 是宿主渲染指令的语义形态；`sections` 只属于 snapshot 形态，这里不写。
  *
  * @module dsh-thesis/autopilot
