@@ -27,10 +27,13 @@ test('探测：配置路径优先，其次 PATH，最后常见安装目录', () 
   assert.equal(configured.engine?.source, 'config')
   assert.equal(configured.engine?.command, 'D:\\tools\\drawio\\drawio.exe')
 
+  // PATH 探测用「宿主自己的分隔符与 join」：CI 跑在 Linux、开发机跑在 Windows，
+  // 写死 win32 的盘符路径会被 POSIX 的 ':' 切碎（'C:\Windows' 里有冒号）。
+  const pathDirs = [nodePath.join('/', 'usr', 'bin'), nodePath.join('/', 'opt', 'tools')]
   const fromPath = detectDrawio({
-    platform: 'win32',
-    env: { PATH: ['C:\\Windows', 'C:\\Tools'].join(nodePath.delimiter) },
-    exists: path => path === nodePath.join('C:\\Tools', 'drawio.exe'),
+    platform: 'linux',
+    env: { PATH: pathDirs.join(nodePath.delimiter) },
+    exists: path => path === nodePath.join(pathDirs[1]!, 'drawio'),
   })
   assert.equal(fromPath.engine?.source, 'path')
 
