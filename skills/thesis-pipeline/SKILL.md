@@ -77,7 +77,7 @@ description: 计算机类本科毕业设计全流程总纲。任何涉及论文�
 - 答辩前要讲清自己的系统：加载 `code-walkthrough`
 - 写作要求被质疑、导师口径模糊：加载 `thesis-inquiry`
 
-## 插件工具地图（dsh-thesis 全集：21 个工具 / 1 条命令 9 个动词）
+## 插件工具地图（dsh-thesis 全集：22 个工具 / 0 条命令）
 
 命名空间规则：`thesis_*` 操作论文工作区里的东西；`fact_*` 操作跨会话的稳定事实；
 `defense_code_*` 是答辩层的代码演练。
@@ -88,7 +88,8 @@ description: 计算机类本科毕业设计全流程总纲。任何涉及论文�
 | 入口 | `thesis_intake` | **逐题追问**，把材料问成 `00-管理/意图规格.md`（一次一问） |
 | 流程 | `thesis_init` / `thesis_progress` / `thesis_decide` | 建工作区 / 台账与 G1-G4 闸门 / 决定留痕 |
 | 文献 | `thesis_lit_search` / `thesis_lit_save` / `thesis_lit_note` | 真实检索（零假文献）→ refs.bib → 阅读笔记 |
-| 写作 | `thesis_review` / `thesis_check` / `thesis_build` | 逐章评审 → 全文一致性检查 → Word 构建 |
+| 写作 | `thesis_review` / `thesis_check` / `thesis_build` | 逐章评审 → 全文一致性检查 → Word 构建（含插图嵌入） |
+| 插图 | `thesis_figure` | draw.io 源文件 + 3× PNG（架构/流程/ER/时序）；导出与图表体检 |
 | 合规 | `thesis_stylecheck` / `thesis_originality` | 写作风格自查（AI 味）/ 原创性本地度量与复测 |
 | 答辩 | `thesis_defense` / `thesis_slides` | 答辩素材与问题库 / 幻灯 Markdown 与 pptx 转换 |
 | 答辩 | `defense_code_status` / `defense_code_next` / `defense_code_update` | 代码演练：把系统拆成讲得清的模块 |

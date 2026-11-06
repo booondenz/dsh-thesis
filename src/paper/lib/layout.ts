@@ -339,7 +339,8 @@ ${HEADER_NOTE}
 
 ## 1 总体架构
 
-<架构图：可用 Mermaid（flowchart/architecture）>
+<架构图：用 thesis_figure action=create kind=architecture 生成 .drawio 与 PNG；
+图放 06-论文/assets/图/，图题写「图 4-1 系统总体架构图」，正文先引用再出图>
 
 ## 2 模块划分
 
@@ -426,6 +427,30 @@ ${HEADER_NOTE}
   }
 
   files.push({ path: '06-论文/图表/.gitkeep', content: '' })
+  files.push({
+    path: '06-论文/assets/图/README.md',
+    content: `# 这里放论文的图
+
+${HEADER_NOTE}
+
+**源文件**：每张图一个 \`.drawio\`（draw.io 格式，随时可改）。**导出件**：同名 \`.png\`（论文用，3× 导出）或 \`.svg\`（幻灯用）。
+
+## 命名与引用
+
+- 文件名用英文小写与短横线：\`arch-overview.drawio\`、\`arch-overview.png\`。
+- 章节里的路径相对章节文件（\`06-论文/章节/\`），写成 \`../assets/图/arch-overview.png\`。
+- 图题在图片下一行，格式 \`图 4-1 系统总体架构图\`；正文先写「如图 4-1 所示」再出现图。
+
+## 出图与体检
+
+- 生成：\`thesis_figure action=create\`（kind = architecture / flow / er / sequence / custom）。
+- 导出：\`thesis_figure action=export\`（需要 draw.io 桌面版；没有时按 \`action=guide\` 的替代路径导出）。
+- 覆盖同名图时旧版本自动存进 \`历史/\`（不参与导出与体检）。
+- 体检：\`thesis_figure action=check\` → 生成本目录下的 \`图表清单.md\`，核对源文件、导出件、引用与图号。
+
+> 红线：论文里的每张图都必须能在这里找到源文件（系统截图除外，需在正文注明来自真实运行）。
+`,
+  })
   files.push({
     path: '06-论文/assets/学校模板/README.md',
     content: `# 学校模板与规范

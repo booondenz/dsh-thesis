@@ -12,10 +12,12 @@
 
 import * as nodePath from 'node:path'
 import { readFile, rm, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import type { FileSystem } from '@deepseek-ai/dsh-fs'
 import { describeFailure, spawnCommand } from '../../shared/spawn.ts'
-import { buildDocx } from '../lib/docx.ts'
+import { buildDocx, type DocxImage } from '../lib/docx.ts'
+import { readImageInfo } from '../lib/image.ts'
 import { CHAPTER_META, isWrittenChapter } from '../lib/layout.ts'
 import { parseLedger } from '../lib/ledger.ts'
 import { findThesisRoot } from '../lib/project.ts'
@@ -56,6 +58,80 @@ const PROBE_TIMEOUT_MS = 10_000
 /** 单次 pandoc 转换的超时（毫秒）：大型论文 + 模板可能慢，但必须有上限。 */
 const CONVERT_TIMEOUT_MS = 120_000
 
+/** 章节里的图片引用：`![图题](路径)`，路径可写成 `<带空格的路径>`。 */
+const IMAGE_REF = /!\[([^\]]*)\]\(\s*(?:<([^>]+)>|([^)\s]+))(?:\s+"[^"]*")?\s*\)/g
+
+/**
+ * 把图片引用解析成磁盘路径：先按章节文件所在目录（Markdown 的常规语义），
+ * 再按论文仓库根（学生把路径写成 `06-论文/assets/图/x.png` 时也能用）。
+ */
+function resolveChapterImage(src: string, chapterAbs: string, root: string): string | undefined {
+  const decoded = src.includes('%') ? decodeURI(src) : src
+  const candidates = nodePath.isAbsolute(decoded)
+    ? [decoded]
+    : [nodePath.resolve(nodePath.dirname(chapterAbs), decoded), nodePath.resolve(root, decoded)]
+  return candidates.find(candidate => existsSync(candidate))
+}
+
+/** 读一张图；只接受 PNG/JPEG，其它格式如实报「不能嵌入」。 */
+async function loadImage(absPath: string): Promise<DocxImage | undefined> {
+  try {
+    const data = new Uint8Array(await readFile(absPath))
+    const info = readImageInfo(data)
+    if (info === undefined) return undefined
+    return { data, width: info.width, height: info.height, format: info.format }
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * 把一章正文里的图片引用统一改写成**绝对路径**，并把图片字节收集起来。
+ *
+ * 为什么要改写成绝对路径：pandoc 的临时 Markdown 在系统临时目录里生成，
+ * 相对路径到那里必然解析不到；内置引擎则按绝对路径查 {@link DocxImage}。
+ * 找不到的图片不静默丢弃——保留原引用并记一条问题，构建说明与工具返回值都会带上。
+ */
+async function prepareChapterImages(
+  text: string,
+  chapterAbs: string,
+  chapterRel: string,
+  root: string,
+  images: Map<string, DocxImage>,
+  problems: string[],
+): Promise<string> {
+  const matches = [...text.matchAll(IMAGE_REF)]
+  if (matches.length === 0) return text
+  let out = ''
+  let cursor = 0
+  for (const match of matches) {
+    const whole = match[0]
+    const alt = match[1] ?? ''
+    const src = match[2] ?? match[3] ?? ''
+    out += text.slice(cursor, match.index)
+    cursor = match.index + whole.length
+    const abs = resolveChapterImage(src, chapterAbs, root)
+    if (abs === undefined) {
+      problems.push(`${chapterRel}：图片不存在 ${src}`)
+      out += whole
+      continue
+    }
+    // 用正斜杠写进 Markdown：pandoc 在 Windows 上也认；反斜杠会被当成 Markdown 转义符。
+    const key = abs.replace(/\\/g, '/')
+    if (!images.has(key)) {
+      const image = await loadImage(abs)
+      if (image === undefined) {
+        problems.push(`${chapterRel}：不是可嵌入的 PNG/JPEG（${src}），已按原样保留`)
+        out += whole
+        continue
+      }
+      images.set(key, image)
+    }
+    out += `![${alt}](<${key}>)`
+  }
+  return out + text.slice(cursor)
+}
+
 export interface BuildOutcome {
   readonly docxPath: string
   readonly pdfPath?: string
@@ -63,6 +139,10 @@ export interface BuildOutcome {
   readonly template: string | undefined
   readonly chapters: readonly string[]
   readonly missing: readonly string[]
+  /** 成功嵌入 docx 的图片数量。 */
+  readonly images: number
+  /** 图片方面的问题（路径不存在 / 格式不支持），逐条写进构建说明。 */
+  readonly imageProblems: readonly string[]
 }
 
 export async function runBuild(
@@ -84,14 +164,17 @@ export async function runBuild(
   const chapterParts: string[] = []
   const included: string[] = []
   const missing: string[] = []
+  const images = new Map<string, DocxImage>()
+  const imageProblems: string[] = []
   for (const [index, meta] of CHAPTER_META.entries()) {
-    const text = await readOptional(fs, nodePath.join(root, '06-论文/章节', `${meta.file}.md`), signal)
+    const chapterAbs = nodePath.join(root, '06-论文/章节', `${meta.file}.md`)
+    const text = await readOptional(fs, chapterAbs, signal)
     if (text === undefined || !isWrittenChapter(text, index + 1, meta)) {
       missing.push(meta.file)
       continue
     }
     included.push(meta.file)
-    chapterParts.push(text)
+    chapterParts.push(await prepareChapterImages(text, chapterAbs, meta.file, root, images, imageProblems))
   }
   if (included.length === 0) throw new Error('没有任何已撰写章节（06-论文/章节/*.md 均为空）。')
 
@@ -125,7 +208,7 @@ export async function runBuild(
   const docxPath = nodePath.join(root, OUT_DIR, '论文.docx')
   let docxBytes: Uint8Array
   if (engine === 'internal') {
-    docxBytes = buildDocx({ title, markdown })
+    docxBytes = buildDocx({ title, markdown, images })
   } else {
     // pandoc：合并内容写临时文件后转换
     const tmpMd = nodePath.join(tmpdir(), `dsh-thesis-build-${process.pid}-${Date.now()}.md`)
@@ -168,12 +251,14 @@ export async function runBuild(
     `- 学校模板：${template ?? '未发现（请将学校模板放入 06-论文/assets/学校模板/ 后重建）'}`,
     `- 收录章节：${included.join('、') || '无'}`,
     `- 未收录章节（空或缺失）：${missing.join('、') || '无'}`,
+    `- 插图：${images.size} 张已嵌入${imageProblems.length > 0 ? `，${imageProblems.length} 处有问题（见下）` : ''}`,
+    ...(imageProblems.length > 0 ? ['', '图片问题：', ...imageProblems.map(problem => `- ${problem}`)] : []),
     `- 产物：论文.docx${pdfPath !== undefined ? '、论文.pdf' : ''}`,
     '',
   ].join('\n')
   await fs.writeText(await fs.resolve(nodePath.join(root, OUT_DIR, '构建说明.md'), { signal }), note, undefined, signal)
 
-  return { docxPath, ...(pdfPath !== undefined ? { pdfPath } : {}), engine, template, chapters: included, missing }
+  return { docxPath, ...(pdfPath !== undefined ? { pdfPath } : {}), engine, template, chapters: included, missing, images: images.size, imageProblems }
 }
 
 export function buildSummary(outcome: BuildOutcome): string {
@@ -184,6 +269,8 @@ export function buildSummary(outcome: BuildOutcome): string {
     `- 学校模板：${outcome.template ?? '未发现'}`,
     `- 收录章节：${outcome.chapters.join('、')}`,
     ...(outcome.missing.length > 0 ? [`- 未收录（空/缺失）：${outcome.missing.join('、')}`] : []),
+    `- 插图：${outcome.images} 张已嵌入${outcome.imageProblems.length > 0 ? `；${outcome.imageProblems.length} 处需处理（见构建说明）` : ''}`,
+    ...outcome.imageProblems.map(problem => `  · ${problem}`),
     '',
     '打开 论文.docx 检查排版；构建细节见 06-论文/产出/构建说明.md。',
   ]

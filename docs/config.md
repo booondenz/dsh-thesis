@@ -65,6 +65,18 @@ profile 的 `cordis.patch.yml` 里，那一行插件的 `config:` 下面：
 | `defense.questionsRel` | `07-答辩/预答辩问题库.md` | 问题库位置 |
 | `defense.defaultPages` | `11` | 幻灯默认页数（规范 10-12）|
 
+### 插图
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `figure.drawioPath` | 无 | draw.io 桌面版可执行文件的绝对路径。缺省在 PATH 与常见安装目录（`%LOCALAPPDATA%\Programs\draw.io`、`Program Files\draw.io`、`/Applications/draw.io.app`、`/usr/bin/drawio`）里探测 |
+| `figure.scale` | `3` | PNG 导出倍率。3× 在 15cm 栏宽下约 370dpi；印刷要求更高可调到 4 |
+| `figure.timeoutMs` | `60000` | 单次导出超时（draw.io 冷启动较慢）|
+
+```yaml
+    figure: { drawioPath: 'D:/Program Files/draw.io/draw.io.exe', scale: 4 }
+```
+
 ### 代码演练
 
 | 字段 | 默认 | 说明 |

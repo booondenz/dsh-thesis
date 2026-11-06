@@ -8,11 +8,12 @@
  *
  *   1. thesis_ingest  材料摄取 → 材料清单 + 逐文件摘要（真实 docx/csv/代码结构/文本）
  *   2. thesis_intake  逐题追问（含「必答未齐时 done 被拒」负路径）→ 意图规格收敛
- *   3. thesis_init    建工作区（35 文件 + 技能包 + git 首提交）
+ *   3. thesis_init    建工作区（36 文件 + 技能包 + git 首提交）
  *   4. 七章写作 + thesis_review 逐章六项评审 + G2 闸门（先验「未过闸门不许验收」负路径）
  *   5. thesis_check   全文五项检查（引用双向一致 / 字数 / 编号 / 术语 / 模板探测）
  *   6. thesis_stylecheck 写作风格自查
  *   7. thesis_build   内置引擎出 docx（独立校验 ZIP 结构与 document.xml）
+ *   7.5 thesis_figure 论文插图：.drawio 源文件 + 导出件 + 图表体检 + docx 嵌图
  *   8. thesis_slides     答辩幻灯（页数 / 时长窗口 / 质量检查）
  *   9. thesis_originality 原创性自查（scan → verify 复测降幅）
  *  10. thesis_defense 答辩素材 + 六类问题库
@@ -35,6 +36,7 @@ import { runReview } from '../../lib/paper/tools/review.js'
 import { runCheck } from '../../lib/paper/tools/check.js'
 import { runAiSelfcheckTool } from '../../lib/paper/tools/aicheck.js'
 import { runBuild, buildSummary } from '../../lib/paper/tools/build.js'
+import { runFigureAction } from '../../lib/figure/actions.js'
 import { runDefensePrep } from '../../lib/paper/tools/defense.js'
 import { runProgress } from '../../lib/paper/tools/progress.js'
 import { runDecision } from '../../lib/paper/tools/decision.js'
@@ -95,6 +97,17 @@ function section(title) {
 
 const LOCAL_SIG = 0x04034b50
 const CENTRAL_SIG = 0x02014b50
+
+/** 只用于端到端的「最小 PNG 头」：宽高可读，字节不需要是真图。 */
+function pngHeader(width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(33)
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0)
+  bytes.set([0x00, 0x00, 0x00, 0x0d], 8)
+  bytes.set([0x49, 0x48, 0x44, 0x52], 12)
+  bytes.set([(width >>> 24) & 0xff, (width >>> 16) & 0xff, (width >>> 8) & 0xff, width & 0xff], 16)
+  bytes.set([(height >>> 24) & 0xff, (height >>> 16) & 0xff, (height >>> 8) & 0xff, height & 0xff], 20)
+  return bytes
+}
 
 /** 读取 ZIP 中央目录里的条目（名 → {offset, method, compressedSize, size}）。 */
 function zipEntries(buffer) {
@@ -427,8 +440,44 @@ try {
   check('风格自查报告含自查结论区（用户填写）', /自查结论/.test(styleReport))
   check('风格自查给出可读结论', style.length > 20, style.split('\n')[0])
 
-  // ---- 8. 出 docx ----
-  section('8. thesis_build：docx 构建')
+  // ---- 8. 出图 + 出 docx ----
+  section('8. thesis_figure + thesis_build：插图与 docx 构建')
+  // 只生成源文件（export:false），不依赖本机是否装了 draw.io——这样端到端在任何机器上结果一致。
+  const figure = await runFigureAction(realFs, WORKSPACE, {
+    action: 'create',
+    kind: 'architecture',
+    name: 'arch-overview',
+    title: '系统总体架构图',
+    chapter: '04-系统设计',
+    export: false,
+    spec: {
+      layers: [
+        { name: '表现层', modules: ['Vue 页面', '路由与状态'] },
+        { name: '业务层', modules: ['任务服务', '用户服务', '鉴权'] },
+        { name: '数据层', modules: ['MySQL', 'Redis'] },
+      ],
+    },
+  }, { scale: 3, timeoutMs: 60_000 })
+  const figureSource = await readFile(join(WORKSPACE, '06-论文/assets/图/arch-overview.drawio'), 'utf8')
+  check('生成可编辑的 .drawio 源文件', /<mxfile/.test(figureSource) && /任务服务/.test(figureSource))
+  // 第 4 章正文里已经有一张「图 4-1 …」的说明，所以自动编号应为 4-2。
+  const caption = /图题：(图\s*\d+-\d+\s+[^\n（]+)/.exec(figure)?.[1]?.trim() ?? ''
+  check('图题按第 4 章已有图号自动编号', caption === '图 4-2 系统总体架构图', caption)
+
+  // 手工放一张导出件（模拟 draw.io 导出），并按论文写法把图写进第 4 章。
+  // 顺序很关键：先写 .drawio，再写 .png——check 用 mtime 判断导出件是否过期。
+  const figurePng = join(WORKSPACE, '06-论文/assets/图/arch-overview.png')
+  await mkdir(dirname(figurePng), { recursive: true })
+  await writeFile(figurePng, pngHeader(2400, 1200))
+  const designPath = join(chapterDir, '04-系统设计.md')
+  const designText = await readFile(designPath, 'utf8')
+  const captionBody = /^图\s*(\d+[-–—]\d+)/.exec(caption)?.[1] ?? ''
+  await writeFile(designPath, `${designText}\n\n如图 ${captionBody} 所示，系统采用分层架构。\n\n![${caption}](../assets/图/arch-overview.png)\n`, 'utf8')
+  const figureCheck = await runFigureAction(realFs, WORKSPACE, { action: 'check' }, { scale: 3, timeoutMs: 60_000 })
+  check('图表体检通过（源文件/导出件/引用/编号）', /0 个必须修的问题/.test(figureCheck), figureCheck.split('\n')[0])
+  const inventory = await readFile(join(WORKSPACE, '06-论文/assets/图/图表清单.md'), 'utf8')
+  check('图表清单落盘并列出源文件与引用章', /\| arch-overview \| .*arch-overview\.drawio \| .*arch-overview\.png \| 04-系统设计 \|/.test(inventory))
+
   const build = await runBuild(realFs, { engine: 'internal', format: 'docx' }, WORKSPACE, undefined, async (path, bytes) => {
     await mkdir(dirname(path), { recursive: true })
     await writeFile(path, bytes)
@@ -447,6 +496,10 @@ try {
   check('docx 正文含第 7 章与真实指标', documentXml.includes('第 7 章') && documentXml.includes('19 fps'))
   check('docx 不含待补/TODO 残留', !/（待补）|TODO|TBD/.test(documentXml))
   check('构建说明落盘', /内置过渡引擎|过渡模板/.test(await readFile(join(WORKSPACE, '06-论文/产出/构建说明.md'), 'utf8')))
+  check('docx 嵌入插图（media 部件）', entries.has('word/media/image1.png'), `entries=${entries.size}`)
+  check('docx 插图带图题', documentXml.includes('系统总体架构图'))
+  check('构建结果统计到 1 张插图', build.images === 1, `images=${build.images}`)
+  check('构建说明记录插图', /插图：1 张已嵌入/.test(await readFile(join(WORKSPACE, '06-论文/产出/构建说明.md'), 'utf8')))
 
   // ---- 9. 原创性自查 ----
   section('9. thesis_originality：scan → verify')

@@ -64,6 +64,7 @@
 | `src/intake/**` | 问题库 + 状态机 + 意图规格渲染 + 规格闸门 | `registerIntake` |
 | `src/paper/**` | 论文流水线（纯逻辑 + 工具 + 子命令词） | `registerPaper` |
 | `src/dedup/**` | 归一化 + 相似度 + 改写处方 + 报告 | `registerDedup` |
+| `src/figure/**` | 插图：规格校验 + 版面 + mxfile 渲染 + draw.io 导出 + 图表体检 | `registerFigure` |
 | `src/ppt/**` | 幻灯计划 + Marp 渲染 + 转换器探测 | `registerPpt` |
 | `src/codewalk/**` | 代码演练：阶段状态机 + 验证门 + 可评分追问 | `registerCodewalk` |
 | `src/memory/**` | SQLite 跨会话事实 + 相关时回灌 | `registerFacts` / `installFactRecall` |
@@ -84,12 +85,12 @@
 
 ## 3. 对外表面契约
 
-### 3.1 工具（21 个，三个命名空间）
+### 3.1 工具（22 个，三个命名空间）
 
 `thesis_*` / `defense_code_*` / `fact_*` 三组，名字即契约（改名就是破坏性变更）。
 **逐个工具的用途、参数与边界见 [tools.md](./tools.md)**，这里只保留设计约束：
 
-- 工具名与命名空间不允许游离：`npm run audit` 断言注册数恰好 21、且全落在三个前缀内；
+- 工具名与命名空间不允许游离：`npm run audit` 断言注册数恰好 22、且全落在三个前缀内；
 - 每个工具都必须有 `output.schema` 与 `output.render`，返回值是**有界字符串**（不返回对象、不做流式）；
 - 工具只操作论文工作区里的东西，跨会话的东西一律走 `fact_*`，两者不混用。
 ### 3.2 命令面：**一条斜杠命令都没有**
@@ -281,6 +282,30 @@ DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
 
 之前的中间形态（一条 /thesis + 九个动词）在这个版本里被整体替换：它解决了「列表太吵」，
 但没解决「人不该操作命令行」。留在这里作为教训：**先问清人要的是入口还是自动化**。
+
+### ADR-16 论文插图用 draw.io 的源文件，而不是 Mermaid 文本
+
+原先的设计是「流程图用 Mermaid（源文件留在仓库）」。真实使用暴露了三个问题：
+
+1. **排版不可控**：Mermaid 的自动布局在 5 个以上节点时会把图排成一团，论文插图最忌讳这个；
+   字号、线型、配色也由渲染器决定，和正文风格对不上。
+2. **进不了 docx**：pandoc 不认 Mermaid 代码块，内置引擎原来也不处理图片，学生最后拿到的是
+   一段代码块而不是图。
+3. **改不动**：Mermaid 改一个模块可能整图重排；答辩前导师说「把这块挪到下面」，学生只能重画。
+
+于是改成 **draw.io 源文件 + 高分辨率 PNG**：
+
+- `thesis_figure create` 只接收**结构化规格**（层与模块 / 节点与边 / 实体与字段 / 参与者与消息），
+  坐标由 `figure/lib/layout.ts` 的确定性版面算法生成——同样输入永远同一张图，可测试、可 diff；
+- 落盘两类文件：`.drawio`（唯一真源，可继续在 draw.io 里改）与 `.png`（3× 导出，约 370dpi）；
+- 导出走 draw.io 桌面版的 CLI，**探测不启动 GUI**（`drawio --version` 会拉起窗口）；
+  没有桌面版时给三条替代路径（在线版 / VS Code 扩展 / winget 安装），绝不假装导出成功；
+- `thesis_build` 同时补上内置引擎的嵌图能力：`![](路径)` 会变成「居中的图 + 图下方的图题」，
+  路径解析失败时在 docx 里留一行可读占位，并把问题写进构建说明——缺图必须一眼看见。
+
+取舍：多了一个外部依赖（draw.io 桌面版）才能自动导出。这个依赖是**可选**的：
+没有它时源文件照样生成，学生按指引手工导出一次即可，不阻塞写作与构建。
+
 ---
 
 ## 7. 数据与产物
@@ -292,6 +317,7 @@ DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
 | 进度台账 / 决定日志 / 时间线 | `00-管理/` | `thesis_init` / `thesis_progress` / `thesis_decide` |
 | 文献库与检索审计 | `02-文献/refs.bib`、`检索记录.md`、`笔记/` | `thesis_lit_*` |
 | 章节与产出 | `06-论文/章节/*.md`、`产出/论文.docx` | 写作 + `thesis_build` |
+| 插图 | `06-论文/assets/图/*.drawio`（源）、`*.png/.svg`（导出件）、`图表清单.md`、`导出说明.md` | `thesis_figure` |
 | 合规报告 | `08-合规/`（引用/格式/AI 味/降重/复测） | `thesis_check` / `thesis_stylecheck` / `thesis_originality` |
 | 答辩材料 | `07-答辩/答辩素材.md`、`预答辩问题库.md`、`PPT.md` | `thesis_defense` / `thesis_slides` |
 | 插件状态 | `<cwd>/.paper/`（追问状态、代码演练状态） | `intake/` / `codewalk/` |

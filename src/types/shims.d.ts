@@ -168,6 +168,7 @@ declare module 'node:path' {
   export function isAbsolute(path: string): boolean
   export function normalize(path: string): string
   export const sep: string
+  export const delimiter: string
 }
 
 declare module 'node:fs' {
@@ -180,7 +181,7 @@ declare module 'node:fs' {
   export function mkdirSync(path: string, options?: { recursive?: boolean }): string | undefined
   export function mkdtempSync(prefix: string): string
   export function existsSync(path: string): boolean
-  export function statSync(path: string): { readonly size: number; isDirectory(): boolean; isFile(): boolean }
+  export function statSync(path: string): { readonly size: number; readonly mtimeMs?: number; isDirectory(): boolean; isFile(): boolean }
   export function lstatSync(path: string): { isSymbolicLink(): boolean; isDirectory(): boolean }
   export function readlinkSync(path: string): string
   export function readFileSync(path: string): any

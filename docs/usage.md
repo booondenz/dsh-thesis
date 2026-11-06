@@ -59,7 +59,9 @@
 | 换学校模板 | 把模板放进 `06-论文/assets/学校模板/`，再跑 `thesis_check`（探测到就用，探测不到显式标注「非学校模板」）|
 | 只改某一章 | 直接说「改第三章的方法部分」，改完 `thesis_review 03-设计` |
 | 回填学校查重结果 | `thesis_originality action=report detected_rate=12 detected_system=知网` |
-| 出 Word | `thesis_build`（有 pandoc 用 pandoc + 模板，没有就用内置零依赖生成器）|
+| 出 Word | `thesis_build`（有 pandoc 用 pandoc + 模板，没有就用内置零依赖生成器；章节里的图会嵌进去并配图题）|
+| 画论文插图 | `thesis_figure action=create kind=architecture chapter=04-系统设计 spec=...` → 生成 `.drawio` + PNG + 图题；改了图重跑 `action=export` |
+| 图对不上（断链/旧图/编号跳号） | `thesis_figure action=check` → `06-论文/assets/图/图表清单.md` |
 | 只做答辩 | `thesis_defense` → `thesis_slides` → 代码演练 `defense_code_*` |
 | 记住学校规范 | `fact_remember key=school.dedup.system value="知网，查重阈值 20%"` |
 | 看进度 | `thesis_progress action=report` |
@@ -73,6 +75,7 @@
 | 进度台账 / 决定日志 / 时间线 | `00-管理/` |
 | 文献库与检索审计 | `02-文献/refs.bib`、`检索记录.md`、`笔记/` |
 | 章节与 Word | `06-论文/章节/*.md`、`06-论文/产出/论文.docx` |
+| 插图（源文件 / 导出件 / 清单） | `06-论文/assets/图/`（`.drawio`、`.png`、`图表清单.md`、`导出说明.md`） |
 | 答辩素材 / 幻灯 / 问题库 | `07-答辩/` |
 | 检查报告（引用 / 格式 / AI 味 / 降重） | `08-合规/` |
 

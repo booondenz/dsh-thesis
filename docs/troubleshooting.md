@@ -60,6 +60,24 @@ pandoc 07-答辩/PPT.md -o 07-答辩/PPT.pptx
 两者都没有时，`thesis_slides convert` 会写一份 `07-答辩/PPT转换说明.md`（探测结果 + 确切命令 + 退出码），
 **绝不假装成功**。装了 marp 之后重跑即可。
 
+## 图没有导出成 PNG
+
+论文插图的真相是 `.drawio` 源文件（`06-论文/assets/图/`），PNG 由外部工具导出。三条路：
+
+1. 装桌面版（推荐）：`winget install --id JGraph.Draw -e`，装完重跑 `thesis_figure action=export`；
+2. 在线版：https://app.diagrams.net → 打开 `.drawio` → 文件 → 导出为 → PNG（缩放 300%）；
+3. VS Code：安装 `hediet.vscode-drawio`，打开 `.drawio` 后 `F1` → `Draw.io: Export`。
+
+`thesis_figure action=export` 会把探测结果、确切命令、退出码写进 `06-论文/assets/图/导出说明.md`，
+**绝不假装成功**。装了桌面版但不在 PATH 时，在配置里写 `figure.drawioPath`。
+
+## 论文里图片显示不出来 / 位置不对
+
+- 路径：章节里的图片路径**相对章节文件**（`06-论文/章节/`），标准写法是 `../assets/图/x.png`；
+  写成相对仓库根的 `06-论文/assets/图/x.png` 也能解析，但换编辑器预览会挂。
+- 图题：图片下一行的 `![图 4-1 系统总体架构图](…)` 就是图题来源；alt 为空时 docx 里不会有图题。
+- 查一遍：`thesis_figure action=check` 会列出断链、缺图题、旧导出与编号跳号。
+
 ## 旧格式打不开
 
 `.doc` / `.xls` / `.ppt` 不支持，先另存为 `.docx` / `.xlsx` / `.pptx`。

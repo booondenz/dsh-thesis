@@ -86,7 +86,7 @@ test('init 冒烟：写入全部文件并复制技能包', async () => {
   assert.ok(fs.peek('/tmp/thesis-smoke/.dsh/skills/thesis-pipeline/SKILL.md'))
   assert.ok(fs.peek('/tmp/thesis-smoke/README.md')!.startsWith('# 冒烟课题'))
   const summary = initSummary(outcome)
-  assert.match(summary, /模板文件：35 个/)
+  assert.match(summary, /模板文件：36 个/)
   assert.match(summary, /下一步/)
 })
 

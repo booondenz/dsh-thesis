@@ -36,7 +36,7 @@ const EXPECTED_TOOLS = [
   'thesis_ingest', 'thesis_intake', 'thesis_init', 'thesis_progress', 'thesis_decide',
   'thesis_lit_search', 'thesis_lit_save', 'thesis_lit_note',
   'thesis_review', 'thesis_check', 'thesis_build', 'thesis_stylecheck',
-  'thesis_originality', 'thesis_defense', 'thesis_slides',
+  'thesis_originality', 'thesis_figure', 'thesis_defense', 'thesis_slides',
   'defense_code_status', 'defense_code_next', 'defense_code_update',
   'fact_search', 'fact_remember', 'fact_context',
 ]

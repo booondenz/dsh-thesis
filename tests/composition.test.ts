@@ -21,6 +21,8 @@ const EXPECTED_TOOLS = [
   'thesis_review', 'thesis_check', 'thesis_build', 'thesis_stylecheck',
   // 原创性自查
   'thesis_originality',
+  // 插图（draw.io 源文件 + 导出 + 图表体检）
+  'thesis_figure',
   // 答辩：素材 / 幻灯 / 代码演练
   'thesis_defense', 'thesis_slides',
   'defense_code_status', 'defense_code_next', 'defense_code_update',
@@ -108,7 +110,7 @@ function fakeHost(): FakeHost {
   return { ctx, tools, commands, definitions, provided, effects, listeners }
 }
 
-test('apply() 挂载全部 21 个工具、零条斜杠命令、2 个服务与 5 类监听', () => {
+test('apply() 挂载全部 22 个工具、零条斜杠命令、2 个服务与 5 类监听', () => {
   const host = fakeHost()
   apply(host.ctx, { memoryPath: ':memory:' })
 
@@ -187,6 +189,9 @@ test('配置解析：嵌套块补默认值，未给的字段不产生 undefined 
   assert.equal(resolved.ppt.engine, 'auto')
   assert.equal(resolved.intake.specRel, '00-管理/意图规格.md')
   assert.ok(resolved.codeWalkthrough.gates.go !== undefined)
+  assert.equal(resolved.figure.scale, PAPER_DEFAULTS.figure.scale)
+  assert.equal(resolved.figure.timeoutMs, PAPER_DEFAULTS.figure.timeoutMs)
+  assert.equal(resolved.figure.drawioPath, undefined, '未配置 draw.io 路径时走探测，不写死默认路径')
   assert.deepEqual(resolveConfig({}).codeWalkthrough.gates, PAPER_DEFAULTS.codeWalkthrough.gates)
   assert.equal(resolved.workspace, undefined, '未配置 workspace 时必须是 undefined（走向上探测）')
   assert.ok(resolved.gates.destructiveRules.length > 0, '闸门默认值必须补全，不能静默关闸门')
@@ -203,6 +208,7 @@ test('配置 schema 可被 schemastery 校验并填入默认值', () => {
     maxQuestions: number
     stylecheck: { reportRel: string }
     codeWalkthrough: { stateDir: string }
+    figure: { scale: number; timeoutMs: number }
     similarity: { shingle: number; threshold: number }
   }
   assert.equal(validated.memoryPath, ':memory:')
@@ -213,4 +219,6 @@ test('配置 schema 可被 schemastery 校验并填入默认值', () => {
   assert.equal(validated.similarity.threshold, PAPER_DEFAULTS.similarity.threshold)
   assert.equal(validated.stylecheck.reportRel, PAPER_DEFAULTS.stylecheck.reportRel)
   assert.equal(validated.codeWalkthrough.stateDir, PAPER_DEFAULTS.codeWalkthrough.stateDir)
+  assert.equal(validated.figure.scale, PAPER_DEFAULTS.figure.scale)
+  assert.equal(validated.figure.timeoutMs, PAPER_DEFAULTS.figure.timeoutMs)
 })

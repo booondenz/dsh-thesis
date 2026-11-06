@@ -40,6 +40,16 @@ export interface PptOptions {
   timeoutMs: number
 }
 
+/** 论文插图（draw.io 源文件 + 外部导出）。 */
+export interface FigureOptions {
+  /** 显式指定的 draw.io 可执行文件；缺省在 PATH 与常见安装目录里探测。 */
+  drawioPath?: string
+  /** 导出倍率：3× 在 15cm 栏宽下约 370dpi。 */
+  scale: number
+  /** 单次导出超时（毫秒）：draw.io 冷启动较慢，给足余量。 */
+  timeoutMs: number
+}
+
 /** 材料到手后的逐题追问。 */
 export interface IntakeOptions {
   /** 单轮追问最多问几个问题（一次一问，但允许上限）。 */
@@ -110,6 +120,8 @@ export interface PaperConfig extends GateOptions {
   stylecheck?: Partial<StylecheckOptions>
   ppt?: Partial<PptOptions>
   defense?: Partial<DefenseOptions>
+  /** 论文插图（draw.io）。 */
+  figure?: Partial<FigureOptions>
   /** 代码演练（答辩层）。 */
   codeWalkthrough?: Partial<CodeWalkthroughOptions>
   /** 自动驾驶（后台推进 + 开头一道选择题 + 关卡拍板）。 */
@@ -126,6 +138,7 @@ export const PAPER_DEFAULTS: {
   stylecheck: StylecheckOptions
   ppt: PptOptions
   defense: DefenseOptions
+  figure: FigureOptions
   codeWalkthrough: CodeWalkthroughOptions
   autopilot: AutopilotOptions
   recall: RecallOptions
@@ -140,6 +153,7 @@ export const PAPER_DEFAULTS: {
     questionsRel: '07-答辩/预答辩问题库.md',
     defaultPages: 11,
   },
+  figure: { scale: 3, timeoutMs: 60_000 },
   codeWalkthrough: {
     stateDir: '.paper',
     gates: {
@@ -164,6 +178,7 @@ export interface ResolvedPaperConfig {
   readonly stylecheck: StylecheckOptions
   readonly ppt: PptOptions
   readonly defense: DefenseOptions
+  readonly figure: FigureOptions
   readonly codeWalkthrough: CodeWalkthroughOptions
   readonly autopilot: AutopilotOptions
   readonly recall: RecallOptions
@@ -175,7 +190,7 @@ export interface ResolvedPaperConfig {
 export function resolveConfig(config: PaperConfig = {}): ResolvedPaperConfig {
   const {
     workspace, memoryPath,
-    ingest, intake, similarity, stylecheck, ppt, defense, codeWalkthrough, autopilot, recall,
+    ingest, intake, similarity, stylecheck, ppt, defense, figure, codeWalkthrough, autopilot, recall,
     writingGate, destructiveGate,
     writingIntentPatterns, criteriaMarkers, bypassMarkers, maxQuestions,
     destructiveToolNames, destructiveRules,
@@ -189,6 +204,7 @@ export function resolveConfig(config: PaperConfig = {}): ResolvedPaperConfig {
     stylecheck: { ...PAPER_DEFAULTS.stylecheck, ...stylecheck },
     ppt: { ...PAPER_DEFAULTS.ppt, ...ppt },
     defense: { ...PAPER_DEFAULTS.defense, ...defense },
+    figure: { ...PAPER_DEFAULTS.figure, ...figure },
     codeWalkthrough: {
       ...PAPER_DEFAULTS.codeWalkthrough,
       ...codeWalkthrough,
@@ -253,6 +269,11 @@ export const Config: z<PaperConfig> = z.object({
     materialsRel: z.string().default(PAPER_DEFAULTS.defense.materialsRel),
     questionsRel: z.string().default(PAPER_DEFAULTS.defense.questionsRel),
     defaultPages: z.natural().min(1).default(PAPER_DEFAULTS.defense.defaultPages),
+  }),
+  figure: z.object({
+    drawioPath: z.string(),
+    scale: z.natural().min(1).default(PAPER_DEFAULTS.figure.scale),
+    timeoutMs: z.natural().default(PAPER_DEFAULTS.figure.timeoutMs),
   }),
   codeWalkthrough: z.object({
     stateDir: z.string().default(PAPER_DEFAULTS.codeWalkthrough.stateDir),

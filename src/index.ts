@@ -12,6 +12,7 @@
  * | `intake/` | 材料到手后的逐题追问 → 意图规格（唯一真相） |
  * | `dedup/` | 原创性自查：本地相似度度量 + 改写处方 + 复测 |
  * | `ppt/` | 答辩幻灯：Marp Markdown + 外部转换器探测 |
+ * | `figure/` | 论文插图：draw.io 源文件 + 导出 PNG + 图表体检 |
  * | `memory/` | 跨会话事实：学校规范、导师要求、写作偏好（学生不必直接调用） |
  * | `codewalk/` | 代码演练：把 AI 写的系统拆成答辩讲得清的模块 |
  * | `gates/` | 闸门：写作意图闸门 + 不可逆操作闸门 + 意图规格闸门 |
@@ -32,6 +33,7 @@ import { Config, resolveConfig, type PaperConfig } from './config.ts'
 import { registerDedup } from './dedup/index.ts'
 import { installDangerousGate } from './gates/dangerous.ts'
 import { installWritingGate } from './gates/prompt.ts'
+import { registerFigure } from './figure/index.ts'
 import { registerIngest } from './ingest/index.ts'
 import { installIntakeGate } from './intake/gate.ts'
 import { registerIntake } from './intake/index.ts'
@@ -84,6 +86,9 @@ export function apply(ctx: Context, config: PaperConfig = {}): void {
 
   // 答辩：Markdown 幻灯 + 外部转换器探测。
   registerPpt(ctx, { ppt: resolved.ppt })
+
+  // 论文插图：draw.io 源文件（唯一真源）+ 导出 PNG + 图表体检。
+  registerFigure(ctx, resolved.figure)
 
   // 自动驾驶：论文工作区里开口就问一次意图 → 建目标自动续轮；关卡由人拍板。
   // 不提供任何斜杠命令：人只在「开头选一次」与「过关卡」两处出现。

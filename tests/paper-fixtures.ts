@@ -70,7 +70,18 @@ export class FakeFs implements FileSystem {
     return entries
   }
 
-  async stat(_target: FsTarget, _signal?: AbortSignal): Promise<never> {
-    throw new Error('FakeFs.stat not implemented')
+  async stat(target: FsTarget, _signal?: AbortSignal) {
+    const path = this.key(target.displayPath)
+    const content = this.files.get(path)
+    if (content !== undefined) {
+      return { isDirectory: false, size: content.length, version: 1 }
+    }
+    // 目录：存在以 `${path}\` 开头的键，就当作目录。
+    if ([...this.files.keys()].some(key => key.startsWith(path + nodePath.sep))) {
+      return { isDirectory: true, size: 0, version: 1 }
+    }
+    const err = new Error(`ENOENT: ${target.displayPath}`) as Error & { code?: string }
+    err.code = 'ENOENT'
+    throw err
   }
 }

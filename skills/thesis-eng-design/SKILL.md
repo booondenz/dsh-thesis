@@ -16,31 +16,51 @@ description: 计算机类毕业设计的工程规范。用于阶段 4-6：需求
 
 ## 2. 系统设计（产出：03-设计/系统设计.md）
 
-- **总体架构**：分层或模块图（Mermaid flowchart / architecture），每层职责一句话。
+- **总体架构**：分层或模块图（`thesis_figure kind=architecture`），每层职责一句话。
 - **模块划分**：模块 | 职责 | 对外接口。模块间低耦合；每个模块能在代码里找到对应目录/文件。
 - **数据库设计**：ER 图 + 关键表结构（字段、类型、约束、索引依据）。
 - **接口设计**：API 表：路径 | 方法 | 参数 | 返回。前后端分离的必须有；单体应用写关键路由。
 
-### 2.1 Web 前后端分离架构模板（Mermaid，可直接改造）
+### 2.1 图直接生成：draw.io 源文件 + 高清 PNG
 
-```mermaid
-flowchart TB
-    subgraph 前端
-        UI[Vue/React 页面]
-        Router[路由与状态管理]
-    end
-    subgraph 后端
-        API[RESTful API 层]
-        SVC[业务服务层]
-        DAO[数据访问层]
-    end
-    DB[(MySQL/PostgreSQL)]
-    OSS[(对象存储 OSS)]
+论文插图**不用 Mermaid**：自动布局会把 5 个以上节点排成一团，pandoc 也不认 Mermaid 代码块。
+用 `thesis_figure`：你只描述「有什么」，坐标由工具的确定性版面算法排。
 
-    UI --> Router -->|HTTP/JSON| API --> SVC --> DAO --> DB
-    SVC --> OSS
-    JWT[JWT 认证] -.-> API
+| 要画的 | kind | spec 关键字段 |
+|---|---|---|
+| 系统总体架构（分层） | `architecture` | `layers[].name`、`layers[].modules`（字符串或 `{text,note,accent}`）、可选 `edges[]` |
+| 业务流程 / 操作流程 | `flow` | `nodes[]`（`kind` = start/process/decision/end）、`edges[]`（可带 `label`） |
+| 数据库 E-R | `er` | `entities[].name/fields[]`（`key:true` 标主键）、`relations[]`（`cardinality` 写 1:N 之类） |
+| 接口时序 | `sequence` | `participants[]`、`messages[]`（`kind` = call/return） |
+| 其它（UML、部署拓扑…） | `custom` | `xml`：draw.io 里「文件 → 另存为」出来的全文 |
+
+```text
+thesis_figure action=create kind=architecture chapter=04-系统设计 title=系统总体架构图
+  spec={"layers":[{"name":"表现层","modules":["Vue 页面","路由与状态"]},
+                  {"name":"业务层","modules":["任务服务","用户服务","鉴权"]},
+                  {"name":"数据层","modules":["MySQL","Redis"]}]}
 ```
+
+一次调用产出三样：`06-论文/assets/图/<名字>.drawio`（源文件，可继续在 draw.io 里改）、
+同名 3× PNG（约 370dpi）、以及按本章已有图号自动编号的图题与可直接粘贴的 Markdown。
+
+四条硬规则：
+
+- **一张图只讲一件事**：总体架构图只放层与模块，字段留给 ER 图。
+- **模块名用名词，动词留给箭头**：方框写「任务服务」，箭头标「HTTP/JSON」。
+- **改图先改 `.drawio` 再导出**（`thesis_figure action=export`），不要直接改 PNG。
+- 每写完一张跑一次 `thesis_figure action=check`：断链、旧导出、图号跳号都会被列出来。
+
+#### 插图风格（借用科研示意图的通行规则）
+
+- **白底、一个强调色**：强调色只标「本文新增/最关键的那一块」（如共享日志、调度循环），
+  其余用低饱和灰蓝；外部系统（浏览器、第三方服务）白底灰框。黑白打印仍要分得清。
+- **连线正交、有向必有箭头**：实线表示始终发生的数据/控制流；虚线在整张图里只表示一种含义
+  （例如节点间复制），不要又表示分组又表示反馈。
+- **嵌套不超过三层**：集群 → 节点 → 模块；再深就拆图。层名放容器顶部留白里，不压第一个方框。
+- **文字用正文里的原词**，字号按最终印刷尺寸不小于 10pt；放不下就合并模块或拆图，不要缩字号。
+- **导出后自己看一眼**：图题在图下方、正文先引用；文字出框、箭头穿字、连线交叉都是返工信号。
+
 
 设计时说明：每层的职责边界（API 层只做参数校验与路由，业务逻辑在服务层——答辩高频追问点）、认证方案（JWT/Session 的选择与理由）、数据一致性策略。
 
