@@ -1,14 +1,24 @@
 name: publish
 
-# 只在打 tag（v2.0.1）时真发布；手动触发只做打包预览，不碰 npm。
+# 发布不再依赖手动打 tag：
+#   推到 main（或直接推 tag）→ 看 package.json 的版本号 → npm 上没有这个版本就发布。
+#   发布成功后**自动补 tag 与 GitHub Release**——tag 从此是发布的产物，不是人手里的开关。
+#
+# 为什么版本号只能来自 package.json，不能从 commit message 里解析：
+#   发布包里真正写的是 package.json 的 version。让提交信息决定"发什么版本"，
+#   就会出现「提交写 v2.1.0、包里还是 2.0.2」这种只有 npm 页面才看得出来的错位；
+#   而 CI 里改 package.json 再发布，又会让仓库版本与 npm 版本永久对不上。
+#   所以：版本号 = package.json（`npm run release:minor` 负责改它），
+#   提交信息只用于生成 tag 名与 Release 标题。
 on:
   push:
-    tags: ['v*']
-  workflow_dispatch:
+    branches: [main]
+    tags: ['v*']        # 保留手动打 tag 的老路径，行为与以前一致
+  workflow_dispatch:     # 只做打包预览，不发布、不打 tag
 
 permissions:
-  contents: write   # 建 GitHub Release
-  id-token: write   # npm provenance（OIDC）
+  contents: write   # 建 tag 与 GitHub Release
+  id-token: write   # npm provenance（OIDC 可信发布）
 
 concurrency:
   group: publish
@@ -31,18 +41,15 @@ jobs:
 
       - run: npm ci
 
-      - name: npm 版本（可信发布要求 >= 11.5.1）
-        run: npm --version
-
       - name: 读版本号
         id: meta
         run: |
-          name="$(node -p 'require("./package.json").name')"
-          version="$(node -p 'require("./package.json").version')"
-          echo "name=$name" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "name=$(node -p 'require("./package.json").name')" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
+          echo "### ${{ github.event_name }} · ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "package.json 版本：$(node -p 'require("./package.json").version')" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: tag 必须与 package.json 版本一致
+      - name: 手动 tag 必须与 package.json 一致
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           tag="${GITHUB_REF_NAME#v}"
@@ -59,36 +66,58 @@ jobs:
           ref="${{ steps.meta.outputs.name }}@${{ steps.meta.outputs.version }}"
           if npm view "$ref" version >/dev/null 2>&1; then
             echo "published=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::$ref 已经发布过，本次跳过 npm publish"
+            echo "::notice::$ref 已经发布过，本次跳过发布"
           else
             echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$ref 尚未发布，本次将发布"
           fi
 
       - name: 打包预览（发布前先看内容）
+        if: steps.exists.outputs.published == 'false' || github.event_name == 'workflow_dispatch'
         run: npm pack --dry-run
 
       - name: 发布到 npm（OIDC 可信发布，不使用 token）
-        if: startsWith(github.ref, 'refs/tags/') && steps.exists.outputs.published == 'false'
-        # prepublishOnly 会跑 prepublish-guard（构建 + 类型 + 测试 + 审计 + 端到端）。
+        if: steps.exists.outputs.published == 'false' && github.event_name != 'workflow_dispatch'
+        # prepublishOnly 会跑 prepublish-guard（构建 + 类型 + 测试 + 审计 + 端到端）：
+        # 这就是「main 红了也不会发出去」的那道闸——它和 ci 跑的是同一套验收。
         # 认证走 GitHub OIDC：npm 侧配置「Trusted Publisher」指向本仓库与 publish.yml，
         # 因此不需要 NPM_TOKEN，也不会有 2FA/OTP 问题；provenance 由 npm 自动生成。
         run: npm publish --access public
 
-      - name: GitHub Release
-        if: startsWith(github.ref, 'refs/tags/') && steps.exists.outputs.published == 'false'
+      - name: 自动补 tag（tag 是发布产物，不是触发条件）
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.exists.outputs.published == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
-            || gh release create "$GITHUB_REF_NAME" --generate-notes --title "$GITHUB_REF_NAME"
+          version="${{ steps.meta.outputs.version }}"
+          if git ls-remote --tags origin "refs/tags/v$version" | grep -q .; then
+            echo "tag v$version 已存在，跳过"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag "v$version"
+            # 用 GITHUB_TOKEN 推的 tag 不会再触发 workflow，因此上面 tags: ['v*'] 不会自己套娃。
+            git push origin "v$version"
+            echo "已创建 tag v$version" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: GitHub Release
+        if: steps.exists.outputs.published == 'false' && github.event_name != 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v${{ steps.meta.outputs.version }}"
+          gh release view "$tag" >/dev/null 2>&1 \
+            || gh release create "$tag" --verify-tag --generate-notes --title "$tag"
 
       - name: 收尾说明
         run: |
-          echo "### ${{ steps.meta.outputs.name }}@${{ steps.meta.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          name="${{ steps.meta.outputs.name }}"
+          version="${{ steps.meta.outputs.version }}"
           if [ "${{ steps.exists.outputs.published }}" = "true" ]; then
-            echo "该版本已存在，未重复发布。" >> "$GITHUB_STEP_SUMMARY"
+            echo "$name@$version 已存在，本次只跑了检查，未发布。" >> "$GITHUB_STEP_SUMMARY"
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "手动触发：只做了打包预览，未发布。发版请打 tag。" >> "$GITHUB_STEP_SUMMARY"
+            echo "手动触发：只做了打包预览，未发布。发版请推 main。" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "已发布：https://www.npmjs.com/package/${{ steps.meta.outputs.name }}/v/${{ steps.meta.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "已发布：https://www.npmjs.com/package/$name/v/$version" >> "$GITHUB_STEP_SUMMARY"
           fi

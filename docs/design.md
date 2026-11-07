@@ -351,6 +351,28 @@ DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
 **取舍**：内置过渡引擎只落实表格与页边距（A4、上 2.5/下 2.5/左 3.0/右 2.5 cm）；
 分节页码、目录域、页眉依赖模板级排版，交给 `build_docx.py` 或 pandoc + 学校模板。
 
+### ADR-19 发布由「版本号」驱动，tag 是产物而不是开关
+
+**背景**：原来发版要先打 tag 再推，tag 名还必须与 `package.json` 逐字一致——漏一步就是一次红 run，
+而 tag 本身没有携带任何信息，只是"我现在要发版了"的暗号。
+
+**决定**：
+1. 触发条件改为 `push: branches: [main]`，同时保留 `tags: ['v*']` 兼容手动打 tag；
+2. 是否发布由「`package.json` 的版本在 npm 上是否已存在」决定——**版本号没变就不发**；
+3. 发布成功后由 workflow 自己 `git tag v<version>` 并推上去，再建 Release；
+4. 版本号只有一个来源：`package.json`。`npm run release:minor` 同时改
+   `package.json` 与 `package-lock.json`（顶层 + `packages[""]`）并提交，提交信息从版本号派生。
+
+**为什么不从 commit message 解析版本**：发布包里写的是 `package.json` 的 version。
+让提交信息决定发什么版本，要么包与 tag 不一致，要么 CI 临时改包导致仓库与 npm 永久错位，
+要么机器人提交回 main 撞保护分支。三者都比"多跑一条 `npm run release:*`"更贵。
+
+**取舍**：每次推 main 都会多跑一个 `npm ci` + `npm view`（约 40 秒）才判定跳过；
+换来的是"日常提交随便推、发版只需升版本号"。
+
+**验证**：`npm run release:minor -- --dry-run` 只打印不落盘；`publish.yml` 用 PyYAML 解析校验结构与条件；
+真正的判定（已发布则跳过）由 npm 侧 `npm view` 保证，重复触发不会覆盖已发布版本。
+
 ---
 
 ## 7. 数据与产物

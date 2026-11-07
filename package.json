@@ -60,6 +60,9 @@
     "test:host": "node scripts/host-smoke.ts && node .host-smoke/app/run.ts",
     "test:host-load": "node scripts/host-verify.ts",
     "audit": "node scripts/audit-surface.ts",
+    "release:patch": "node scripts/release.ts patch",
+    "release:minor": "node scripts/release.ts minor",
+    "release:major": "node scripts/release.ts major",
     "verify": "npm run build && npm run typecheck && npm run typecheck:scripts && npm run test:sandbox && npm run audit && npm run test:e2e",
     "prepublishOnly": "node scripts/prepublish-guard.ts"
   },
