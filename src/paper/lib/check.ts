@@ -134,6 +134,21 @@ function checkWordCountsGlobal(input: CheckInput): CheckSection {
 // 3. 图/表编号（全文逐章）
 // ---------------------------------------------------------------------------
 
+/** 统计一章里的 Markdown 表格块数与「表 x-y」表题数（用于查"有表无题"）。 */
+export function countTablesAndCaptions(text: string, chapterNo: number): { tables: number; captions: number } {
+  const lines = text.split(/\r?\n/)
+  let tables = 0
+  let inTable = false
+  for (const line of lines) {
+    const isRow = line.trim().startsWith('|')
+    if (isRow && !inTable) tables += 1
+    inTable = isRow
+  }
+  const pattern = new RegExp(`^表\\s*${chapterNo}\\s*[-–—]\\s*\\d+`, 'gm')
+  const captions = (text.match(pattern) ?? []).length
+  return { tables, captions }
+}
+
 function checkFiguresGlobal(input: CheckInput): CheckSection {
   const lines: string[] = []
   let problems = 0
@@ -144,6 +159,12 @@ function checkFiguresGlobal(input: CheckInput): CheckSection {
         problems += 1
         lines.push(`✗ ${chapter.name} ${finding.detail}`)
       }
+    }
+    // 表题缺失：有表格却没有「表 x-y 名称」的行。学位论文要求每张表都有表序与表名。
+    const { tables, captions } = countTablesAndCaptions(chapter.text, chapter.no)
+    if (tables > captions) {
+      problems += 1
+      lines.push(`✗ ${chapter.name}：${tables} 张表但只有 ${captions} 个表题；每张表上方都要有「表 ${chapter.no}-x 名称」`)
     }
   }
   if (problems === 0) lines.push('✓ 各章图/表编号章号正确、序号连续（无图表的章不计）。')

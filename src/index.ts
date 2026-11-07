@@ -69,7 +69,7 @@ export function apply(ctx: Context, config: PaperConfig = {}): void {
   // 事实回灌：相关时自动把已确认的稳定事实放回上下文（不相关则完全静默）。
   installFactRecall(ctx, resolved.recall)
 
-  // 论文工作区：11 个工具。
+  // 论文工作区：13 个工具。
   registerPaper(ctx, { skillsDir: SKILLS_DIR })
 
   // 代码演练（答辩层）：3 个工具 + 进度卡注入 + code-walkthrough 技能。

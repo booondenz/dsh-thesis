@@ -17,7 +17,7 @@ import { FakeFs } from './paper-fixtures.ts'
 const EXPECTED_TOOLS = [
   // 论文工作区：材料 → 要求 → 阶段 → 论文
   'thesis_ingest', 'thesis_intake', 'thesis_init', 'thesis_progress', 'thesis_decide',
-  'thesis_lit_search', 'thesis_lit_save', 'thesis_lit_note',
+  'thesis_lit_search', 'thesis_lit_save', 'thesis_lit_note', 'thesis_lit_verify', 'thesis_lit_import',
   'thesis_review', 'thesis_check', 'thesis_build', 'thesis_stylecheck',
   // 原创性自查
   'thesis_originality',
@@ -110,7 +110,7 @@ function fakeHost(): FakeHost {
   return { ctx, tools, commands, definitions, provided, effects, listeners }
 }
 
-test('apply() 挂载全部 22 个工具、零条斜杠命令、2 个服务与 5 类监听', () => {
+test('apply() 挂载全部 24 个工具、零条斜杠命令、2 个服务与 5 类监听', () => {
   const host = fakeHost()
   apply(host.ctx, { memoryPath: ':memory:' })
 

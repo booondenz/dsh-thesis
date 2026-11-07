@@ -12,6 +12,7 @@ import * as nodePath from 'node:path'
 import type { FileSystem } from '@deepseek-ai/dsh-fs'
 import { MAX_BULLETS_PER_SLIDE, MAX_BULLET_CHARS, MAX_TITLE_CHARS, MIN_BULLETS_PER_SLIDE, audienceProfile, type Audience } from './outline.ts'
 import { parseMarp, type ParsedDeck, type ParsedSlide } from './marp.ts'
+import { designIssues, parseDeckPages } from './design.ts'
 
 /** 问题级别：error = 必须修；warn = 建议修。 */
 export type IssueLevel = 'error' | 'warn'
@@ -120,6 +121,11 @@ export function checkDeck(
       '全文',
       `预计时长 ${minMinutes}-${maxMinutes} 分钟，短于 ${DURATION_MIN_MINUTES} 分钟；老师一般要求讲满，建议把要点讲透或补一页实现细节。`,
     )
+  }
+
+  // 9. 版面设计（借鉴歸藏设计瑞士风的口径）：版面单调 / 要点过多 / 连续无图 / 缺封面结尾
+  for (const issue of designIssues(parseDeckPages(markdown))) {
+    push(issue.code, issue.level, issue.where, issue.message)
   }
 
   const errors = issues.filter(i => i.level === 'error').length

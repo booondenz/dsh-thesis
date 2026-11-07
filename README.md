@@ -68,7 +68,7 @@ node scripts/install-into-profile.ts --profile web     # 没有 pnpm 时的兜�
 |---|---|
 | [docs/usage.md](./docs/usage.md) | 使用手册：第一次会话、九阶段、常见动作、产出物、中断续跑 |
 | [docs/autopilot.md](./docs/autopilot.md) | 自动驾驶：四档意图、关卡拍板、何时不介入、降级与关闭 |
-| [docs/tools.md](./docs/tools.md) | 22 个工具 + 11 个技能一览（名字即契约） |
+| [docs/tools.md](./docs/tools.md) | 24 个工具 + 11 个技能一览（名字即契约） |
 | [docs/config.md](./docs/config.md) | 全部配置字段、默认值与约束 |
 | [docs/troubleshooting.md](./docs/troubleshooting.md) | 装了没反应、没弹选择题、PDF/pptx 失败等 |
 | [docs/design.md](./docs/design.md) | 设计文档与 ADR（架构、分层、质量策略、已知边界） |

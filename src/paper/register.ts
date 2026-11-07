@@ -13,6 +13,7 @@ import { initSummary, runInit, type InitArgs } from './tools/init.ts'
 import { runProgress, type ProgressArgs } from './tools/progress.ts'
 import { runDecision, type DecisionArgs } from './tools/decision.ts'
 import { runLitNote, runLitSave, runLitSearch, type LitNoteArgs, type LitSaveArgs, type LitSearchArgs } from './tools/lit.ts'
+import { runLitImport, runLitVerify, type LitImportArgs, type LitVerifyArgs } from './tools/lit-verify.ts'
 import { runReview, type ReviewArgs } from './tools/review.ts'
 import { buildSummary, runBuild, type BuildArgs } from './tools/build.ts'
 import { runCheck } from './tools/check.ts'
@@ -27,7 +28,7 @@ export interface PaperOptions {
 }
 
 /**
- * 注册 11 个论文工具 + 5 个斜杠命令。
+ * 注册 13 个论文工具（本插件不提供斜杠命令，流程由自动驾驶推进）。
  *
  * 命令名只允许 `[a-z][a-z0-9_-]*`，故统一 `thesis-` 前缀。
  */
@@ -131,6 +132,45 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     output: textOutput(),
     async execute(rawArgs, exec) {
       return await runLitNote(ctx.fs, rawArgs as LitNoteArgs, sessionCwd(exec), exec.signal)
+    },
+  }))
+
+  ctx.tools.register(definePaperTool({
+    name: 'thesis_lit_verify',
+    description:
+      '核验候选文献是否真实存在：逐条拿 Crossref / OpenAlex / DataCite / PubMed 对账题名、作者、年份、DOI，' +
+      '只出结论、不改 refs.bib。用于核验 Undermind / Elicit / Consensus 导出或别人给的文献清单；' +
+      '结论 verified / mismatch / not-found / invalid / unchecked，报告写入 08-合规/文献核验报告.md。',
+    parameters: {
+      title: { type: 'string', description: '题名（单条核验时给 title 或 doi）' },
+      doi: { type: 'string', description: 'DOI（形如 10.1145/xxxx.xxxx；给了 DOI 就按 DOI 精确对账）' },
+      authors: { type: 'array', items: { type: 'string' }, description: '作者姓名列表（用于核对第一作者姓氏）' },
+      year: { type: 'number', description: '年份（与权威记录差 ≤1 视为一致）' },
+      venue: { type: 'string', description: '期刊/会议名（仅作参考核对）' },
+      path: { type: 'string', description: '批量核验：导出的 .bib / .ris / .csv 路径（相对论文仓库或绝对路径）' },
+      save: { type: 'boolean', description: '核验通过后是否顺手收录进 refs.bib，默认 false' },
+    },
+    output: textOutput(),
+    async execute(rawArgs, exec) {
+      return await runLitVerify(ctx.fs, rawArgs as LitVerifyArgs, sessionCwd(exec), exec.signal, fetch)
+    },
+  }))
+
+  ctx.tools.register(definePaperTool({
+    name: 'thesis_lit_import',
+    description:
+      '导入 Undermind / Elicit / Consensus / Zotero 导出的 .bib / .ris / .csv：逐条核验，' +
+      '**只有核验通过的**才写进 02-文献/refs.bib，未通过的写进 08-合规/文献核验报告.md 并说明原因。' +
+      '解析只读不改写元数据；网络不通时不入库（fail closed）——这是「零假文献」的入口闸门。',
+    parameters: {
+      path: { type: 'string', required: true, description: '导出文件路径（.bib / .ris / .csv）' },
+      source: { type: 'string', description: '来源标签：undermind | elicit | consensus | zotero | google-scholar，缺省按文件名推断' },
+      limit: { type: 'number', description: '只核验前 N 条（导出很大时先试跑）' },
+      save: { type: 'boolean', description: '默认 true：核验通过的直接入库；设 false 只核验' },
+    },
+    output: textOutput(),
+    async execute(rawArgs, exec) {
+      return await runLitImport(ctx.fs, rawArgs as LitImportArgs, sessionCwd(exec), exec.signal, fetch)
     },
   }))
 

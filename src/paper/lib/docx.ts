@@ -119,10 +119,12 @@ function parseInline(text: string): Run[] {
   return runs
 }
 
-function runsXml(runs: readonly Run[]): string {
-  return runs.map(run =>
-    `<w:r><w:rPr>${run.bold ? '<w:b/>' : ''}</w:rPr><w:t xml:space="preserve">${escapeXml(run.text)}</w:t></w:r>`,
-  ).join('')
+function runsXml(runs: readonly Run[], opts?: { readonly size?: number; readonly bold?: boolean }): string {
+  const sizeXml = opts?.size !== undefined ? `<w:sz w:val="${opts.size}"/><w:szCs w:val="${opts.size}"/>` : ''
+  return runs.map(run => {
+    const bold = opts?.bold ?? run.bold
+    return `<w:r><w:rPr>${bold ? '<w:b/>' : ''}${sizeXml}</w:rPr><w:t xml:space="preserve">${escapeXml(run.text)}</w:t></w:r>`
+  }).join('')
 }
 
 function paragraphXml(text: string, styleId?: string, pageBreakBefore = false): string {
@@ -132,21 +134,73 @@ function paragraphXml(text: string, styleId?: string, pageBreakBefore = false): 
   return `<w:p>${pPr}${runsXml(parseInline(text))}</w:p>`
 }
 
+/** 表题行（`表 4-1 模块划分`）：走 Caption 样式居中，与图题同一套口径。 */
+export function isTableCaption(text: string): boolean {
+  return /^表\s*\d+\s*[-–—]\s*\d+\s+\S/.test(text)
+}
+
 function blockXml(block: Exclude<Block, { kind: 'image' }>): string {
   switch (block.kind) {
     case 'h1': return paragraphXml(block.text, 'Heading1', true)
     case 'h2': return paragraphXml(block.text, 'Heading2')
     case 'h3': return paragraphXml(block.text, 'Heading3')
-    case 'p': return paragraphXml(block.text)
+    case 'p': return isTableCaption(block.text) ? paragraphXml(block.text, 'Caption') : paragraphXml(block.text)
     case 'bullet': return paragraphXml(`• ${block.text}`, 'ListBullet')
-    case 'table': {
-      const rows = block.rows.map(row => {
-        const cells = row.map(cell => `<w:tc><w:p>${runsXml(parseInline(cell))}</w:p></w:tc>`).join('')
-        return `<w:tr>${cells}</w:tr>`
-      }).join('')
-      return `<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="0" w:type="auto"/></w:tblPr>${rows}</w:tbl>`
-    }
+    case 'table': return renderTableXml(block.rows)
   }
+}
+
+// ---------------------------------------------------------------------------
+// 表格：三线表（顶线 1.5pt / 栏目线 0.75pt / 底线 1.5pt，无竖线）
+// ---------------------------------------------------------------------------
+
+const TABLE_HALF_POINTS = 21 // 五号 10.5pt
+const NUMERIC_CELL = /^[\d\s.,%+\-–—~/×x≈]*\s*(?:ms|s|秒|个|次|%)?$/
+
+function isNumericColumn(rows: readonly (readonly string[])[], column: number): boolean {
+  const cells = rows.slice(1).map(row => row[column]?.trim() ?? '').filter(cell => cell !== '')
+  if (cells.length === 0) return false
+  return cells.every(cell => NUMERIC_CELL.test(cell) && /\d/.test(cell))
+}
+
+function tableCellXml(text: string, header: boolean, center: boolean): string {
+  const rules = header
+    ? '<w:tcBorders><w:bottom w:val="single" w:sz="6" w:space="0" w:color="000000"/></w:tcBorders>'
+    : ''
+  const paragraph = `<w:p><w:pPr><w:jc w:val="${center ? 'center' : 'left'}"/><w:spacing w:before="30" w:after="30"/></w:pPr>` +
+    `${runsXml(parseInline(text), { size: TABLE_HALF_POINTS, bold: header })}</w:p>`
+  return `<w:tc><w:tcPr>${rules}<w:vAlign w:val="center"/></w:tcPr>${paragraph}</w:tc>`
+}
+
+/**
+ * 三线表：表格只靠三条横线成形，不画竖线、不做隔行底纹。
+ * 表头跨页重复（tblHeader），表内五号字，表头加粗居中，数字列居中。
+ */
+export function renderTableXml(rows: readonly (readonly string[])[]): string {  if (rows.length === 0) return ''
+  const columns = Math.max(...rows.map(row => row.length))
+  const borders = '<w:tblBorders>' +
+    '<w:top w:val="single" w:sz="12" w:space="0" w:color="000000"/>' +
+    '<w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>' +
+    '<w:bottom w:val="single" w:sz="12" w:space="0" w:color="000000"/>' +
+    '<w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/>' +
+    '<w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/>' +
+    '<w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/>' +
+    '</w:tblBorders>'
+  const margins = '<w:tblCellMar><w:top w:w="40" w:type="dxa"/><w:left w:w="85" w:type="dxa"/>' +
+    '<w:bottom w:w="40" w:type="dxa"/><w:right w:w="85" w:type="dxa"/></w:tblCellMar>'
+  const props = `<w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:jc w:val="center"/>${borders}` +
+    `<w:tblLayout w:type="autofit"/>${margins}<w:tblLook w:val="04A0" w:firstRow="1" w:lastRow="0" w:firstColumn="0" w:lastColumn="0" w:noHBand="0" w:noVBand="1"/></w:tblPr>`
+  const grid = `<w:tblGrid>${'<w:gridCol/>'.repeat(columns)}</w:tblGrid>`
+  const body = rows.map((row, index) => {
+    const header = index === 0
+    const cells = Array.from({ length: columns }, (_, column) => {
+      const text = row[column] ?? ''
+      return tableCellXml(text, header, header || isNumericColumn(rows, column))
+    }).join('')
+    const trProps = header ? '<w:trPr><w:cantSplit/><w:tblHeader/></w:trPr>' : '<w:trPr><w:cantSplit/></w:trPr>'
+    return `<w:tr>${trProps}${cells}</w:tr>`
+  }).join('')
+  return `<w:tbl>${props}${grid}${body}</w:tbl>`
 }
 
 // ---------------------------------------------------------------------------
@@ -332,7 +386,7 @@ export function buildDocx(opts: DocxOptions): Uint8Array {
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
   <w:body>
     ${body.join('')}
-    <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>
+    <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1417" w:bottom="1417" w:left="1701" w:header="851" w:footer="992" w:gutter="0"/></w:sectPr>
   </w:body>
 </w:document>
 `
