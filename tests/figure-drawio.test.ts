@@ -238,6 +238,54 @@ test('流程图版面：按最长路径分层，箭头从下层节点的底部�
   }
 })
 
+test('流程图版面：跳层连线走右侧通道，不从中间节点身上穿过去', () => {
+  const model = parseFigureModel('flow', {
+    nodes: [
+      { id: 's', text: '开始', kind: 'start' },
+      { id: 'a', text: '扫描', kind: 'process' },
+      { id: 'd', text: '有到期任务?', kind: 'decision' },
+      { id: 'b', text: '选 worker', kind: 'process' },
+      { id: 'c', text: '提案', kind: 'process' },
+      { id: 'e', text: '处理超时', kind: 'process' },
+      { id: 'f', text: '结束', kind: 'end' },
+    ],
+    edges: [
+      { from: 's', to: 'a' },
+      { from: 'a', to: 'd' },
+      { from: 'd', to: 'b', label: '是' },
+      { from: 'b', to: 'c' },
+      { from: 'c', to: 'e' },
+      { from: 'd', to: 'e', label: '否' },
+      { from: 'e', to: 'f' },
+    ],
+  })
+  const drawing = buildDrawing(model)
+  const edges = drawing.cells.filter(cell => cell.kind === 'edge') as Extract<FigureCell, { kind: 'edge' }>[]
+  const skip = edges.find(edge => edge.value === '否')!
+  assert.match(skip.style, /exitX=1;exitY=0\.5;entryX=1;entryY=0\.5;/, '跳层边从右侧绕行')
+  assert.equal(skip.points?.length, 2, '绕行边带两个折点')
+  const vertices = drawing.cells.filter(cell => cell.kind === 'vertex') as Extract<FigureCell, { kind: 'vertex' }>[]
+  const maxRight = Math.max(...vertices.map(cell => cell.rect.x + cell.rect.width))
+  for (const point of skip.points ?? []) {
+    assert.ok(point.x > maxRight, '折点落在所有节点右侧的通道里')
+  }
+  const vertical = edges.filter(edge => edge.value !== '否')
+  for (const edge of vertical) {
+    assert.match(edge.style, /exitX=0\.5;exitY=1;entryX=0\.5;entryY=0;/, '普通边仍是上→下')
+  }
+})
+
+test('流程图版面：层数多时收紧行距，避免一张流程图占两三页高', () => {
+  const nodes = [{ id: 'n0', text: '开始', kind: 'start' as const }]
+  const edges: { from: string, to: string }[] = []
+  for (let index = 1; index <= 7; index += 1) {
+    nodes.push({ id: `n${index}`, text: `步骤 ${index}`, kind: index === 7 ? ('end' as const) : ('process' as const) })
+    edges.push({ from: `n${index - 1}`, to: `n${index}` })
+  }
+  const drawing = buildDrawing(parseFigureModel('flow', { nodes, edges }))
+  assert.ok(drawing.height < 760, `8 层流程图的高度应在 760 以内，实际 ${drawing.height}`)
+})
+
 test('E-R 版面：实体是标题栏 + 字段行，两列排布，关系线不带箭头', () => {
   const model = parseFigureModel('er', {
     entities: [

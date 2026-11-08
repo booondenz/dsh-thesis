@@ -291,6 +291,9 @@ function buildFlow(model: Extract<FigureModel, { kind: 'flow' }>['model']): Figu
   }
 
   const rowRanks = [...rows.keys()].sort((a, b) => a - b)
+  // 层数一多，固定 48 的行距会把整张图拉成两三页高（8 层 ≈ 740 单位高）。
+  // 层数超过 4 就收紧行距：A4 正文宽 15.5cm 时，这张图仍能一页放下。
+  const gapY = rowRanks.length <= 4 ? cfg.gapY : Math.max(30, cfg.gapY - 14)
   const nodeWidthOf = (node: { kind: string }): number => (node.kind === 'decision' ? cfg.decisionWidth : cfg.nodeWidth)
   const nodeHeightOf = (node: { kind: string }): number => (node.kind === 'decision' ? cfg.decisionHeight : cfg.nodeHeight)
 
@@ -301,7 +304,7 @@ function buildFlow(model: Extract<FigureModel, { kind: 'flow' }>['model']): Figu
   let maxX = 0
   rowRanks.forEach((rankNo, rowIndex) => {
     const nodes = rows.get(rankNo) ?? []
-    const rowY = LAYOUT.margin + rowIndex * (cfg.nodeHeight + cfg.gapY)
+    const rowY = LAYOUT.margin + rowIndex * (cfg.nodeHeight + gapY)
     if (nodes.length > 1) notes.push(`第 ${rankNo + 1} 层有 ${nodes.length} 个并行节点（${nodes.map(n => n.text).join('、')}）`)
     const main = nodes.find(node => mainPath.has(node.id))
     const mainWidth = main === undefined ? 0 : nodeWidthOf(main)
@@ -335,6 +338,11 @@ function buildFlow(model: Extract<FigureModel, { kind: 'flow' }>['model']): Figu
     positions.set(id, { ...rect, x: rect.x + shift })
   }
 
+  // 跳层连线的绕行通道：放在内容右侧。不绕行的话，draw.io 会把「判断 → 第 N 层」这类
+  // 跨层边画成一条竖线，正好从中间几层的节点身上穿过去（看上去像把框划开了）。
+  const laneX = maxX + shift + 26
+  const contentWidth = Math.max(460, laneX + LAYOUT.margin - shift)
+
   for (const node of model.nodes) {
     const rect = positions.get(node.id)
     if (rect === undefined) continue
@@ -356,21 +364,30 @@ function buildFlow(model: Extract<FigureModel, { kind: 'flow' }>['model']): Figu
     if (source === undefined || target === undefined) throw new FigureLayoutError(`连线端点「${edge.from} → ${edge.to}」在版面里找不到`)
     const fromRect = positions.get(edge.from)
     const toRect = positions.get(edge.to)
-    const horizontal = fromRect !== undefined && toRect !== undefined && Math.abs(fromRect.y - toRect.y) < 1
+    const fromRank = rank.get(edge.from) ?? 0
+    const toRank = rank.get(edge.to) ?? 0
+    const skipsRanks = toRank - fromRank > 1
+    const horizontal = !skipsRanks && fromRect !== undefined && toRect !== undefined && Math.abs(fromRect.y - toRect.y) < 1
+    const style = skipsRanks
+      ? `${STYLE.edge}exitX=1;exitY=0.5;entryX=1;entryY=0.5;`
+      : horizontal
+        ? `${STYLE.edge}exitX=1;exitY=0.5;entryX=0;entryY=0.5;`
+        : `${STYLE.edge}exitX=0.5;exitY=1;entryX=0.5;entryY=0;`
     cells.push({
       kind: 'edge',
       id: nextEdge(),
       value: edge.label ?? '',
-      style: horizontal
-        ? `${STYLE.edge}exitX=1;exitY=0.5;entryX=0;entryY=0.5;`
-        : `${STYLE.edge}exitX=0.5;exitY=1;entryX=0.5;entryY=0;`,
+      style,
       source,
       target,
+      ...(skipsRanks && fromRect !== undefined && toRect !== undefined
+        ? { points: [{ x: laneX, y: fromRect.y + fromRect.height / 2 }, { x: laneX, y: toRect.y + toRect.height / 2 }] }
+        : {}),
     })
   }
 
-  const height = LAYOUT.margin + rowRanks.length * (cfg.nodeHeight + cfg.gapY) - cfg.gapY + LAYOUT.margin
-  return { cells, width, height, notes }
+  const height = LAYOUT.margin + rowRanks.length * (cfg.nodeHeight + gapY) - gapY + LAYOUT.margin
+  return { cells, width: contentWidth, height, notes }
 }
 
 // ---------------------------------------------------------------------------
@@ -396,6 +413,7 @@ function buildEr(model: Extract<FigureModel, { kind: 'er' }>['model']): FigureDr
   const width = LAYOUT.margin * 2 + maxWidth * columns + (columns - 1) * cfg.columnGap
 
   const entityIds = new Map<string, string>()
+  const entityRects = new Map<string, Rect>()
   const columnY = new Array<number>(columns).fill(LAYOUT.margin)
   model.entities.forEach((entity, index) => {
     const column = index % columns
@@ -406,6 +424,7 @@ function buildEr(model: Extract<FigureModel, { kind: 'er' }>['model']): FigureDr
 
     const id = nextVertex('entity')
     entityIds.set(entity.name, id)
+    entityRects.set(entity.name, { x, y, width: widthForEntity, height })
     // 不可见的容器先画（在下层）：关系线连到整张表，而不是某一行；
     // 先入队保证它垫在标题与字段下面，不遮挡文字与点击。
     cells.push({
@@ -441,11 +460,21 @@ function buildEr(model: Extract<FigureModel, { kind: 'er' }>['model']): FigureDr
     const target = entityIds.get(relation.to)
     if (source === undefined || target === undefined) throw new FigureLayoutError(`关系端点「${relation.from} → ${relation.to}」在版面里找不到`)
     const label = [relation.cardinality, relation.label].filter(part => part !== undefined && part !== '').join(' ')
+    // 关系线必须锚在实体**外框**上：不给锚点时 draw.io 会从容器中心起笔，
+    // 线直接从字段行中间穿过去（三张表并排时尤其明显）。
+    const fromRect = entityRects.get(relation.from)
+    const toRect = entityRects.get(relation.to)
+    const sameColumn = fromRect !== undefined && toRect !== undefined && Math.abs(fromRect.x - toRect.x) < 1
+    const ports = fromRect === undefined || toRect === undefined || sameColumn
+      ? 'exitX=0.5;exitY=1;entryX=0.5;entryY=0;'
+      : toRect.x > fromRect.x
+        ? 'exitX=1;exitY=0.5;entryX=0;entryY=0.5;'
+        : 'exitX=0;exitY=0.5;entryX=1;entryY=0.5;'
     cells.push({
       kind: 'edge',
       id: nextEdge(),
       value: label,
-      style: `${STYLE.edge}endArrow=none;startArrow=none;`,
+      style: `${STYLE.edge}endArrow=none;startArrow=none;${ports}`,
       source,
       target,
     })
