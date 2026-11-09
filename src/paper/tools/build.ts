@@ -1,10 +1,11 @@
 /**
  * thesis_build：产出论文 docx（+ 可选 pdf）。
  *
- * 引擎选择：
- * - pandoc 存在时优先（--reference-doc 使用学校模板）；
- * - 无 pandoc 时使用内置零依赖转换器（lib/docx.ts），并在构建说明中
- *   显式标注"内置过渡引擎，非学校模板排版"。
+ * 引擎选择（见 {@link chooseEngine}）：
+ * - 有学校模板且装了 pandoc：pandoc（--reference-doc 套学校样式）；
+ * - 否则用 python-docx（assets/build_docx.py，DSH 自带运行时里就有）——
+ *   封面、目录域、分节页码、页眉横线、三线表都在这一步完成；
+ * - 都没有时退回内置零依赖转换器（lib/docx.ts），并在构建说明里显式标注。
  *
  * 二进制例外（文档化）：ctx.fs 无二进制写入能力，docx/pdf 字节由本工具
  * 通过 node:fs 直接写入论文仓库 06-论文/产出/ 目录。文本工作全部走 ctx.fs。
@@ -21,10 +22,11 @@ import { readImageInfo } from '../lib/image.ts'
 import { CHAPTER_META, isWrittenChapter } from '../lib/layout.ts'
 import { parseLedger } from '../lib/ledger.ts'
 import { findThesisRoot } from '../lib/project.ts'
+import { buildDocxWithPython, detectPythonDocx, readDocxBytes, type PyBuildConfig } from '../lib/py-docx.ts'
 
 export interface BuildArgs {
   format?: 'docx' | 'pdf' | 'both'
-  engine?: 'auto' | 'pandoc' | 'internal'
+  engine?: 'auto' | 'py' | 'pandoc' | 'internal'
 }
 
 export type WriteBinary = (absPath: string, data: Uint8Array) => Promise<void>
@@ -51,6 +53,29 @@ async function listOptional(fs: FileSystem, absPath: string, signal?: AbortSigna
 
 function pandocAvailable(): boolean {
   return spawnCommand('pandoc', ['--version'], { timeoutMs: PROBE_TIMEOUT_MS }).ok
+}
+
+/**
+ * 封面信息（可选）：`06-论文/封面信息.json`。
+ *
+ * 写坏或不写都不阻断构建——拿不到就用脚本里的占位符，构建照常产出。
+ */
+async function readCoverInfo(fs: FileSystem, root: string, signal?: AbortSignal): Promise<Partial<PyBuildConfig>> {
+  const text = await readOptional(fs, nodePath.join(root, '06-论文/封面信息.json'), signal)
+  if (text === undefined) return {}
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(text) as Record<string, unknown>
+  } catch {
+    return {}
+  }
+  const fields = ['school', 'college', 'major', 'student', 'student_id', 'advisor', 'date'] as const
+  const cover: Record<string, string> = {}
+  for (const field of fields) {
+    const value = parsed[field]
+    if (typeof value === 'string' && value.trim() !== '') cover[field] = value
+  }
+  return cover
 }
 
 /** 引擎探测的超时（毫秒）：探测不该拖住工具调用。 */
@@ -135,7 +160,7 @@ async function prepareChapterImages(
 export interface BuildOutcome {
   readonly docxPath: string
   readonly pdfPath?: string
-  readonly engine: 'pandoc' | 'internal'
+  readonly engine: BuildEngine
   readonly template: string | undefined
   readonly chapters: readonly string[]
   readonly missing: readonly string[]
@@ -143,6 +168,48 @@ export interface BuildOutcome {
   readonly images: number
   /** 图片方面的问题（路径不存在 / 格式不支持），逐条写进构建说明。 */
   readonly imageProblems: readonly string[]
+  /** python-docx 引擎的实际解释器（引擎没用上时为空）。 */
+  readonly python?: { command: string, version: string }
+}
+
+export type BuildEngine = 'py' | 'pandoc' | 'internal'
+
+/** 引擎的人话名字（构建说明与工具返回值共用，避免两处措辞漂移）。 */
+export function engineLabel(engine: BuildEngine): string {
+  return engine === 'py'
+    ? 'python-docx（封面/目录/分节页码/页眉/三线表）'
+    : engine === 'pandoc'
+      ? 'pandoc'
+      : '内置过渡引擎（仅基础排版）'
+}
+
+/**
+ * 选引擎。抽成纯函数是为了能测：真机上「有没有 pandoc / python-docx」没法在单测里造。
+ *
+ * 顺序：显式指定优先；auto 时——有学校模板的 pandoc（学校样式最准）> python-docx
+ * （排版最完整）> 无模板的 pandoc（只有基础样式）> 内置引擎。
+ */
+export function chooseEngine(input: {
+  readonly requested: BuildArgs['engine']
+  readonly hasPandoc: boolean
+  readonly hasTemplate: boolean
+  readonly hasPython: boolean
+}): BuildEngine {
+  const { requested, hasPandoc, hasTemplate, hasPython } = input
+  const requestedOrDefault = requested ?? 'auto'
+  if (requestedOrDefault === 'internal') return 'internal'
+  if (requestedOrDefault === 'pandoc') {
+    if (!hasPandoc) throw new Error('请求 pandoc 引擎但本机未安装 pandoc。请安装 pandoc，或改用 py / internal 引擎。')
+    return 'pandoc'
+  }
+  if (requestedOrDefault === 'py') {
+    if (!hasPython) throw new Error('请求 python-docx 引擎但没找到装了 python-docx 的解释器（DSH 自带运行时里通常有）。')
+    return 'py'
+  }
+  if (hasPandoc && hasTemplate) return 'pandoc'
+  if (hasPython) return 'py'
+  if (hasPandoc) return 'pandoc'
+  return 'internal'
 }
 
 export async function runBuild(
@@ -156,8 +223,8 @@ export async function runBuild(
   if (root === null) throw new Error('未找到论文工作区。请先在论文仓库目录内操作。')
 
   const format = args.format ?? 'docx'
-  if (format === 'pdf' && (args.engine ?? 'auto') === 'internal') {
-    throw new Error('内置引擎只能产出 docx。PDF 需要 pandoc（并安装 LaTeX 引擎）。')
+  if ((format === 'pdf' || format === 'both') && (args.engine === 'internal' || args.engine === 'py')) {
+    throw new Error('PDF 需要 pandoc（并安装 LaTeX 引擎）；py / internal 引擎只产出 docx。')
   }
 
   // 章节收集（按模板顺序；只收录"已撰写"章节）
@@ -191,24 +258,25 @@ export async function runBuild(
   const templateFiles = await listOptional(fs, nodePath.join(root, TEMPLATE_DIR), signal)
   const template = templateFiles.find(f => /\.(docx?|dotx?)$/i.test(f))
 
-  // 引擎选择
+  // 引擎选择：pandoc 与 python-docx 都要现场探测（装没装、装了能不能用）
   const requested = args.engine ?? 'auto'
-  const hasPandoc = pandocAvailable()
-  let engine: 'pandoc' | 'internal'
-  if (requested === 'pandoc') {
-    if (!hasPandoc) throw new Error('请求 pandoc 引擎但本机未安装 pandoc。请安装 pandoc 或改用 internal 引擎。')
-    engine = 'pandoc'
-  } else if (requested === 'internal') {
-    engine = 'internal'
-  } else {
-    engine = hasPandoc ? 'pandoc' : 'internal'
-  }
+  const hasPandoc = requested === 'py' || requested === 'internal' ? false : pandocAvailable()
+  const pyDetection = requested === 'internal' ? { probes: [] as string[] } : detectPythonDocx()
+  const engine = chooseEngine({ requested, hasPandoc, hasTemplate: template !== undefined, hasPython: pyDetection.python !== undefined })
 
   // docx 字节
   const docxPath = nodePath.join(root, OUT_DIR, '论文.docx')
   let docxBytes: Uint8Array
+  let python: { command: string, version: string } | undefined
   if (engine === 'internal') {
     docxBytes = buildDocx({ title, markdown, images })
+  } else if (engine === 'py') {
+    // 封面信息是可选的：学生在 06-论文/封面信息.json 里写学校/学院/姓名，没有就用占位符。
+    const cover = await readCoverInfo(fs, root, signal)
+    const config: PyBuildConfig = { root, out: docxPath, title, ...cover }
+    const outcome = await buildDocxWithPython(pyDetection.python!, config)
+    python = { command: outcome.command, version: outcome.version }
+    docxBytes = await readDocxBytes(docxPath)
   } else {
     // pandoc：合并内容写临时文件后转换
     const tmpMd = nodePath.join(tmpdir(), `dsh-thesis-build-${process.pid}-${Date.now()}.md`)
@@ -247,7 +315,8 @@ export async function runBuild(
     '# 构建说明',
     '',
     `- 时间：${new Date().toISOString()}`,
-    `- 引擎：${engine === 'pandoc' ? 'pandoc' : '内置过渡引擎（非学校模板排版）'}`,
+    `- 引擎：${engineLabel(engine)}`,
+    ...(python !== undefined ? [`- python：${python.version}（${python.command}）`] : []),
     `- 学校模板：${template ?? '未发现（请将学校模板放入 06-论文/assets/学校模板/ 后重建）'}`,
     `- 收录章节：${included.join('、') || '无'}`,
     `- 未收录章节（空或缺失）：${missing.join('、') || '无'}`,
@@ -258,14 +327,15 @@ export async function runBuild(
   ].join('\n')
   await fs.writeText(await fs.resolve(nodePath.join(root, OUT_DIR, '构建说明.md'), { signal }), note, undefined, signal)
 
-  return { docxPath, ...(pdfPath !== undefined ? { pdfPath } : {}), engine, template, chapters: included, missing, images: images.size, imageProblems }
+  return { docxPath, ...(pdfPath !== undefined ? { pdfPath } : {}), engine, template, chapters: included, missing, images: images.size, imageProblems, ...(python !== undefined ? { python } : {}) }
 }
 
 export function buildSummary(outcome: BuildOutcome): string {
   const lines = [
     `构建完成：${outcome.docxPath}`,
     ...(outcome.pdfPath !== undefined ? [`PDF：${outcome.pdfPath}`] : []),
-    `- 引擎：${outcome.engine === 'pandoc' ? 'pandoc' : '内置过渡引擎（非学校模板排版，提交前请获取学校模板后用 pandoc 重建）'}`,
+    `- 引擎：${engineLabel(outcome.engine)}`,
+    ...(outcome.python !== undefined ? [`- python：${outcome.python.version}（${outcome.python.command}）`] : []),
     `- 学校模板：${outcome.template ?? '未发现'}`,
     `- 收录章节：${outcome.chapters.join('、')}`,
     ...(outcome.missing.length > 0 ? [`- 未收录（空/缺失）：${outcome.missing.join('、')}`] : []),

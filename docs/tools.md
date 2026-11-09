@@ -28,7 +28,7 @@
 | `thesis_review` | 单章六项评审 | 字数区间 / 大纲小节 / 引用编号 / 图表编号 / 未完成标记 / G2 清单 |
 | `thesis_check` | 全文五项检查 | 引用双向一致、字数、图表编号与**表题缺失**（有表无「表 x-y 名称」）、术语定义顺序、学校模板探测 |
 | `thesis_stylecheck` | 六条 AI 味启发式 | 模板套话、空洞结论、自我暴露、翻译腔、句式单一、无锚点长段落 |
-| `thesis_build` | 出 `论文.docx` | 有 pandoc 用 pandoc + 学校模板，没有用内置零依赖生成器（显式标注）；章节里的 `![](图)` 会嵌进 docx 并配图题 |
+| `thesis_build` | 出 `论文.docx` | 三档引擎：学校模板 + pandoc → **python-docx（DSH 自带运行时，封面/目录域/分节页码/页眉/三线表）** → 内置零依赖生成器。章节里的 `![](图)` 会嵌进 docx 并配图题；封面信息读 `06-论文/封面信息.json`（可选） |
 | `thesis_figure` | 论文插图（draw.io） | create 按结构化规格生成可编辑 `.drawio` + 3× PNG（架构/流程/ER/时序/手写 XML）；export 批量导出；check 核对源文件↔导出件↔正文引用↔图号；没有 draw.io 桌面版时给三条替代路径，绝不假装成功 |
 | `thesis_originality` | 本地降重度量 | scan / verify / report；**不接收费查重**，报告里是本地估算 |
 | `thesis_defense` | 答辩素材 + 六类问题库 | 每个问题带证据锚点（哪个文件哪一行） |

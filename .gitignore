@@ -18,3 +18,7 @@
 *.swp
 *.swo
 *.log
+
+# python 排版脚本的字节码
+__pycache__/
+*.pyc

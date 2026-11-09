@@ -392,6 +392,37 @@ DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
 **验证**：`tests/shared-sandbox.test.ts` 直接对着宿主签名断言：第 5 参一定在、策略来自本次会话、
 没有沙箱服务时原样返回、读调用不多传参数。
 
+### ADR-21 Word 排版优先用 DSH 自带的 python-docx，内置引擎只做兜底
+
+**背景**：内置引擎（`lib/docx.ts` + `lib/zip.ts`）是零依赖手写 OOXML，覆盖基础排版没问题，
+但封面、目录域、分节页码（罗马→阿拉伯）、页眉横线这些"纸面规矩"写起来又长又脆；
+而 DSH 自带的运行时里就有 python-docx，`office-docx` 技能本来就是这么用的。
+
+**决定**：`thesis_build` 三档引擎，顺序由 {@link chooseEngine} 决定：
+
+| 条件 | 引擎 |
+|---|---|
+| 有学校模板 + pandoc | pandoc（学校样式最准）|
+| 有装了 python-docx 的解释器 | **py**：跑随包的 `assets/build_docx.py` |
+| 只有 pandoc | pandoc（基础样式）|
+| 都没有 | 内置引擎（并显式标注"仅基础排版"）|
+
+`assets/build_docx.py` 只吃一个 JSON 配置（root/out/title/封面信息），
+读取约定与论文工作区一致（`06-论文/摘要.md`、`章节/*.md`、`参考文献.md`，缺哪个跳过哪个）；
+封面信息可选地来自 `06-论文/封面信息.json`，没有就留占位符。
+
+**探测**：配置 `DSH_THESIS_PYTHON` → `$DSH_HOME/dsh-runtimes/*/dependencies/python/python.exe` → PATH；
+判据是**真的 import 一次 docx**，只看"命令存在"会把没装的系统 Python 当成可用。
+退出码 0 但产物不存在/0 字节同样算失败。
+
+**取舍**：多了 674 行随包的 Python（走 `files: assets`）；PDF 仍只能 pandoc；
+不装 python-docx 的机器退回内置引擎，排版会退化但不会失败。
+这条路的产出**确定性**略低于内置引擎（依赖 python-docx 版本），换来的是排版能力。
+
+**验证**：`tests/build-engine.test.ts` 钉死引擎优先级与降级、探测跳过 import 失败的候选、
+`assets/build_docx.py` 必须随包存在；另有一次真机端到端：用检测到的自带运行时把
+`E:\code\thesis` 排成 3 节 / 7 表 / 5 图 / 852KB 的 docx，与本仓库里手工脚本的产物一致。
+
 ---
 
 ## 7. 数据与产物

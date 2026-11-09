@@ -205,8 +205,9 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
   ctx.tools.register(definePaperTool({
     name: 'thesis_build',
     description:
-      '把已撰写章节（06-论文/章节/*.md）构建为论文.docx（可附 pdf）：优先 pandoc + 学校模板（06-论文/assets/学校模板/），' +
-      '无 pandoc 时用内置过渡引擎并显式标注。构建说明写入 06-论文/产出/构建说明.md。',
+      '把已撰写章节（06-论文/章节/*.md）构建为论文.docx（可附 pdf）：有学校模板 + pandoc 时走 pandoc；' +
+      '否则用 DSH 自带运行时的 python-docx（封面、目录域、分节页码、页眉、三线表，封面信息可写 06-论文/封面信息.json）；' +
+      '两者都没有才退回内置零依赖引擎并显式标注。构建说明写入 06-论文/产出/构建说明.md。',
     parameters: {
       format: { type: 'string', description: 'docx（默认）| pdf | both' },
       engine: { type: 'string', description: 'auto（默认，有 pandoc 用之）| pandoc | internal' },

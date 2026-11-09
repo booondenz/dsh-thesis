@@ -12,6 +12,7 @@
   },
   "files": [
     "lib",
+    "assets",
     "skills",
     "cordis.patch.yml",
     "README.md",
