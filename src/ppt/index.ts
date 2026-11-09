@@ -14,7 +14,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { PptOptions } from '../config.ts'
-import { definePaperTool, sessionCwd, textOutput, writeBinary } from '../shared/index.ts'
+import { definePaperTool, sandboxedFs, sessionCwd, textOutput, writeBinary } from '../shared/index.ts'
 import { runPptAction, type PptArgs, type PptDeps } from './actions.ts'
 
 export { buildSlidePlan, parseDefenseMaterials, parseChapterFallback, truncateBullet, truncateTitle, audienceProfile, titleFromLedger, loadOutlineInputs, summarizePlan, composeSlides, MAX_BULLET_CHARS, MAX_TITLE_CHARS, MAX_BULLETS_PER_SLIDE, MIN_BULLETS_PER_SLIDE, SECONDS_PER_SLIDE_MIN, SECONDS_PER_SLIDE_MAX } from './outline.ts'
@@ -56,7 +56,7 @@ export function registerPpt(ctx: Context, options: { ppt: PptOptions }, deps: Pp
     output: textOutput(),
     async execute(rawArgs, exec): Promise<string> {
       const args = { ...((rawArgs ?? {}) as PptArgs) }
-      const outcome = await runPptAction(ctx.fs, sessionCwd(exec), args, options, exec.signal, fullDeps)
+      const outcome = await runPptAction(sandboxedFs(ctx, exec.agent?.session), sessionCwd(exec), args, options, exec.signal, fullDeps)
       return outcome.text
     },
   }))

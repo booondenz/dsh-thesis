@@ -18,7 +18,7 @@
 import * as nodePath from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { FileSystem } from '@deepseek-ai/dsh-fs'
-import { bulletList, definePaperTool, sessionCwd, textOutput } from '../shared/index.ts'
+import { bulletList, definePaperTool, sandboxedFs, sessionCwd, textOutput } from '../shared/index.ts'
 import { CHAPTER_META, isWrittenChapter } from '../paper/lib/layout.ts'
 import { findThesisRoot } from '../paper/lib/project.ts'
 import type { SimilarityOptions } from '../config.ts'
@@ -395,7 +395,7 @@ export function registerDedup(ctx: Context, options: { similarity: SimilarityOpt
     },
     output: textOutput(),
     async execute(rawArgs, exec) {
-      return await runDedup(ctx.fs, sessionCwd(exec), rawArgs as DedupArgs, options.similarity, exec.signal)
+      return await runDedup(sandboxedFs(ctx, exec.agent?.session), sessionCwd(exec), rawArgs as DedupArgs, options.similarity, exec.signal)
     },
   }))
 }

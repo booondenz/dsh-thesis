@@ -11,6 +11,7 @@ import { writeFile } from 'node:fs/promises'
 import type { ToolExecution } from '@deepseek-ai/dsh-tools'
 
 export { definePaperTool, usingHostDefineTool, compileParameterSchema, compileValueSchema, type PaperToolOptions } from './define-tool.ts'
+export { sandboxedFs, resolveSandboxPolicy } from './sandbox.ts'
 
 /** 统一的纯文本工具输出（本插件所有工具都返回有界字符串）。 */
 export function textOutput() {

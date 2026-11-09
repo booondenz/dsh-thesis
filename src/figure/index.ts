@@ -8,7 +8,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { definePaperTool, sessionCwd, textOutput } from '../shared/index.ts'
+import { definePaperTool, sandboxedFs, sessionCwd, textOutput } from '../shared/index.ts'
 import { FIGURE_TOOL_DESCRIPTION, runFigureAction, type FigureArgs, type FigureOptions } from './actions.ts'
 
 export { FIGURE_DIR, FIGURE_NOTES, FIGURE_INVENTORY, FIGURE_TOOL_DESCRIPTION, runFigureAction, slugify, resolveChapter, nextFigureIndex, extractReferences } from './actions.ts'
@@ -44,7 +44,7 @@ export function registerFigure(ctx: Context, options: FigureOptions): void {
     },
     output: textOutput(),
     async execute(rawArgs, exec): Promise<string> {
-      return await runFigureAction(ctx.fs, sessionCwd(exec), rawArgs as unknown as FigureArgs, options, exec.signal)
+      return await runFigureAction(sandboxedFs(ctx, exec.agent?.session), sessionCwd(exec), rawArgs as unknown as FigureArgs, options, exec.signal)
     },
   }))
 }

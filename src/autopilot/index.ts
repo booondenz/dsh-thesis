@@ -22,6 +22,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { AutopilotOptions } from '../config.ts'
 import { findThesisRoot } from '../paper/lib/project.ts'
 import { runDecision } from '../paper/tools/decision.ts'
+import { sandboxedFs } from '../shared/index.ts'
 import { choiceOfLabel, INTENT_QUESTION_ID, intentQuestion, type IntentChoice } from './intent.ts'
 import { gateApprovalReason, makeAutopilotMessage } from './messages.ts'
 import type { AutopilotAnswerItem, AutopilotAgent, GoalsService, UserQuestionsService } from './types.ts'
@@ -102,7 +103,7 @@ export function installAutopilot(ctx: Context, options: AutopilotInstallOptions)
 
     try {
       await runDecision(
-        ctx.fs,
+        sandboxedFs(ctx, agent.session),
         { content: `自动驾驶启动：本次意图 = 「${choice.label}」（用户在启动选择题里确认；目标上限 ${options.maxGoalRounds} 轮）` },
         root,
         payload.signal,

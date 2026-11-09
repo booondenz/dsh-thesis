@@ -373,6 +373,25 @@ DSH 的 profile 预检（`dsh-app-boot` 的 `evaluatePluginCompatibility`，在
 **验证**：`npm run release:minor -- --dry-run` 只打印不落盘；`publish.yml` 用 PyYAML 解析校验结构与条件；
 真正的判定（已发布则跳过）由 npm 侧 `npm view` 保证，重复触发不会覆盖已发布版本。
 
+### ADR-20 写调用必须带上「本次会话」的沙箱策略
+
+**背景**：`workspace-write` 模式下所有写工具都被拒（`FS_SANDBOX_DENIED`），同一台机器写临时目录却成功。
+原因是宿主的写签名 `writeText(target, content, expected?, signal?, sandboxPolicy?)` 第 5 参被省略时，
+宿主退回**部署默认**策略，其 `workspaceRoot` 是 `process.cwd()` 而不是会话工作区——于是「写自己的工作区」被判成越界。
+
+**决定**：所有工具执行体改用 `sandboxedFs(ctx, exec.agent?.session)` 取代裸 `ctx.fs`。
+它是个 Proxy，只拦 `writeText`/`editText`，把 `ctx.sandboxPolicy.resolve({ session })` 的结果补成第 5 参；
+读操作与其余方法原样透传，lib 层一行不改。
+
+**为什么不在 22 个调用点逐个补参数**：分布在 16 个文件里，逐个补既容易漏，也会让"以后新增一处写"再踩一次坑。
+在入口包一层，lib 里所有 `fs.writeText(...)` 自动带上策略，判据统一在 `shared/sandbox.ts` 一处。
+
+**取舍**：`writeBinary`（docx/pptx）仍走 `node:fs` 直写——`ctx.fs` 没有二进制写能力，这是文档化的例外，
+也意味着二进制产出不受沙箱围栏约束；要收紧得宿主先提供二进制写原语。
+
+**验证**：`tests/shared-sandbox.test.ts` 直接对着宿主签名断言：第 5 参一定在、策略来自本次会话、
+没有沙箱服务时原样返回、读调用不多传参数。
+
 ---
 
 ## 7. 数据与产物

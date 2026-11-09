@@ -17,7 +17,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { definePaperTool, sessionCwd, textOutput } from '../shared/index.ts'
+import { definePaperTool, sandboxedFs, sessionCwd, textOutput } from '../shared/index.ts'
 import {
   INTAKE_ACTIONS,
   intakeToolDefinition,
@@ -456,7 +456,14 @@ export function registerIntake(ctx: Context, options: { intake: IntakeSubOptions
     parameters: definition.parameters,
     output: textOutput(),
     async execute(rawArgs, exec) {
-      return await definition.execute(rawArgs as IntakeArgs, exec as unknown as IntakeExecLike)
+      // 每次调用按当前会话重建定义：写文件要带上本次调用的 sandboxPolicy（第 5 参），
+      // 否则 workspace-write 模式下连用户自己的工作区都写不进去。
+      const bound = intakeToolDefinition(
+        sandboxedFs(ctx, exec.agent?.session) as never,
+        options.intake,
+        runIntake,
+      )
+      return await bound.execute(rawArgs as IntakeArgs, exec as unknown as IntakeExecLike)
     },
   }))
 }

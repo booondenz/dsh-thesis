@@ -8,7 +8,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { definePaperTool, sessionCwd, textOutput, writeBinary } from '../shared/index.ts'
+import { definePaperTool, sandboxedFs, sessionCwd, textOutput, writeBinary } from '../shared/index.ts'
 import { initSummary, runInit, type InitArgs } from './tools/init.ts'
 import { runProgress, type ProgressArgs } from './tools/progress.ts'
 import { runDecision, type DecisionArgs } from './tools/decision.ts'
@@ -45,7 +45,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     },
     output: textOutput(),
     async execute(rawArgs, exec) {
-      const outcome = await runInit(ctx.fs, rawArgs as InitArgs, options.skillsDir, exec.signal)
+      const outcome = await runInit(sandboxedFs(ctx, exec.agent?.session), rawArgs as InitArgs, options.skillsDir, exec.signal)
       return initSummary(outcome)
     },
   }))
@@ -68,7 +68,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     },
     output: textOutput(),
     async execute(rawArgs, exec) {
-      return await runProgress(ctx.fs, rawArgs as ProgressArgs, sessionCwd(exec), exec.signal)
+      return await runProgress(sandboxedFs(ctx, exec.agent?.session), rawArgs as ProgressArgs, sessionCwd(exec), exec.signal)
     },
   }))
 
@@ -85,7 +85,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     },
     output: textOutput(),
     async execute(rawArgs, exec) {
-      return await runDecision(ctx.fs, rawArgs as DecisionArgs, sessionCwd(exec), exec.signal)
+      return await runDecision(sandboxedFs(ctx, exec.agent?.session), rawArgs as DecisionArgs, sessionCwd(exec), exec.signal)
     },
   }))
 
@@ -102,7 +102,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     },
     output: textOutput(),
     async execute(rawArgs, exec) {
-      return await runLitSearch(ctx.fs, rawArgs as LitSearchArgs, sessionCwd(exec), exec.signal, fetch)
+      return await runLitSearch(sandboxedFs(ctx, exec.agent?.session), rawArgs as LitSearchArgs, sessionCwd(exec), exec.signal, fetch)
     },
   }))
 
@@ -116,7 +116,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     },
     output: textOutput(),
     async execute(rawArgs, exec) {
-      return await runLitSave(ctx.fs, rawArgs as LitSaveArgs, sessionCwd(exec), exec.signal)
+      return await runLitSave(sandboxedFs(ctx, exec.agent?.session), rawArgs as LitSaveArgs, sessionCwd(exec), exec.signal)
     },
   }))
 
@@ -131,7 +131,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     },
     output: textOutput(),
     async execute(rawArgs, exec) {
-      return await runLitNote(ctx.fs, rawArgs as LitNoteArgs, sessionCwd(exec), exec.signal)
+      return await runLitNote(sandboxedFs(ctx, exec.agent?.session), rawArgs as LitNoteArgs, sessionCwd(exec), exec.signal)
     },
   }))
 
@@ -152,7 +152,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     },
     output: textOutput(),
     async execute(rawArgs, exec) {
-      return await runLitVerify(ctx.fs, rawArgs as LitVerifyArgs, sessionCwd(exec), exec.signal, fetch)
+      return await runLitVerify(sandboxedFs(ctx, exec.agent?.session), rawArgs as LitVerifyArgs, sessionCwd(exec), exec.signal, fetch)
     },
   }))
 
@@ -170,7 +170,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     },
     output: textOutput(),
     async execute(rawArgs, exec) {
-      return await runLitImport(ctx.fs, rawArgs as LitImportArgs, sessionCwd(exec), exec.signal, fetch)
+      return await runLitImport(sandboxedFs(ctx, exec.agent?.session), rawArgs as LitImportArgs, sessionCwd(exec), exec.signal, fetch)
     },
   }))
 
@@ -186,7 +186,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     },
     output: textOutput(),
     async execute(rawArgs, exec) {
-      return await runReview(ctx.fs, rawArgs as ReviewArgs, sessionCwd(exec), exec.signal)
+      return await runReview(sandboxedFs(ctx, exec.agent?.session), rawArgs as ReviewArgs, sessionCwd(exec), exec.signal)
     },
   }))
 
@@ -198,7 +198,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     parameters: {},
     output: textOutput(),
     async execute(_rawArgs, exec) {
-      return await runCheck(ctx.fs, sessionCwd(exec), exec.signal)
+      return await runCheck(sandboxedFs(ctx, exec.agent?.session), sessionCwd(exec), exec.signal)
     },
   }))
 
@@ -214,7 +214,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     output: textOutput(),
     async execute(rawArgs, exec) {
       const args = rawArgs as BuildArgs
-      const outcome = await runBuild(ctx.fs, args, sessionCwd(exec), exec.signal, writeBinary)
+      const outcome = await runBuild(sandboxedFs(ctx, exec.agent?.session), args, sessionCwd(exec), exec.signal, writeBinary)
       return buildSummary(outcome)
     },
   }))
@@ -228,7 +228,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     parameters: {},
     output: textOutput(),
     async execute(_rawArgs, exec) {
-      return await runAiSelfcheckTool(ctx.fs, sessionCwd(exec), exec.signal)
+      return await runAiSelfcheckTool(sandboxedFs(ctx, exec.agent?.session), sessionCwd(exec), exec.signal)
     },
   }))
 
@@ -241,7 +241,7 @@ export function registerPaper(ctx: Context, options: PaperOptions): void {
     parameters: {},
     output: textOutput(),
     async execute(_rawArgs, exec) {
-      return await runDefensePrep(ctx.fs, sessionCwd(exec), exec.signal)
+      return await runDefensePrep(sandboxedFs(ctx, exec.agent?.session), sessionCwd(exec), exec.signal)
     },
   }))
 }

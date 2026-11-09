@@ -17,7 +17,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { FileSystem } from '@deepseek-ai/dsh-fs'
 import type { IngestOptions } from '../config.ts'
 import { findThesisRoot } from '../paper/lib/project.ts'
-import { bulletList, definePaperTool, sessionCwd, textOutput } from '../shared/index.ts'
+import { bulletList, definePaperTool, sandboxedFs, sessionCwd, textOutput } from '../shared/index.ts'
 import {
   codeLanguageOf,
   detectTechStack,
@@ -765,7 +765,7 @@ export function registerIngest(ctx: Context, options: RegisterIngestOptions): vo
     output: OUTPUT,
     async execute(rawArgs, exec) {
       const args = rawArgs as IngestArgs
-      const outcome = await runIngest(ctx.fs, diskIO, args, sessionCwd(exec), options.ingest, exec.signal)
+      const outcome = await runIngest(sandboxedFs(ctx, exec.agent?.session), diskIO, args, sessionCwd(exec), options.ingest, exec.signal)
       return renderOutcome(outcome, options.ingest.maxChars)
     },
   }))
