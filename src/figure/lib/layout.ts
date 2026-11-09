@@ -5,7 +5,9 @@
  * 而且每条规则都可解释、可测试：
  *
  * - 架构图：层是横向色带，模块在层内按行排布（每行最多 4 个），层与层之间留出箭头的通道；
- * - 流程图：按「最长路径」分层（Kahn 拓扑序），起点在上、终点在下，同级节点横向均分；
+ * - 流程图：按「最长路径」分层（Kahn 拓扑序），层数 ≤3 时单列自上而下；
+ *   更长就折成两列蛇形（奇数列自下而上），把页面宽度用起来——单列竖排会让
+ *   8 层流程变成 5cm 宽、20cm 高的细条，A4 栏宽里根本排不下；
  * - E-R 图：实体是表格式图元（标题栏 + 字段行），两列摆放，关系线带基数标注；
  * - 时序图：参与者等距排开，生命线用 draw.io 自带形状，消息按时间从上往下逐行。
  *
@@ -291,57 +293,63 @@ function buildFlow(model: Extract<FigureModel, { kind: 'flow' }>['model']): Figu
   }
 
   const rowRanks = [...rows.keys()].sort((a, b) => a - b)
-  // 层数一多，固定 48 的行距会把整张图拉成两三页高（8 层 ≈ 740 单位高）。
-  // 层数超过 4 就收紧行距：A4 正文宽 15.5cm 时，这张图仍能一页放下。
-  const gapY = rowRanks.length <= 4 ? cfg.gapY : Math.max(30, cfg.gapY - 14)
+  const depth = rowRanks.length
+
+  // 单列竖排会把长流程拉成一根细条：4 层就是 198×360 单位（约 5×9.5cm），
+  // 按论文栏宽 15.5cm 排开是 30cm 高，比版心（24.7cm）还高，只能缩成窄窄一条。
+  // 所以超过 3 层就折成两列（更多层折三列），奇数列自下而上——蛇形阅读，
+  // 8 层从 198×768 变成约 460×412，15.5cm 栏宽下落到一页以内。
+  const columns = depth <= 3 ? 1 : depth <= 10 ? 2 : 3
+  const rowsPerColumn = Math.ceil(depth / columns)
+  const gapY = cfg.gapY
+  const corridorGap = cfg.gapX * 2
+
   const nodeWidthOf = (node: { kind: string }): number => (node.kind === 'decision' ? cfg.decisionWidth : cfg.nodeWidth)
   const nodeHeightOf = (node: { kind: string }): number => (node.kind === 'decision' ? cfg.decisionHeight : cfg.nodeHeight)
 
-  // 先以「中轴 x=0」排布，最后整体平移：主干节点落在中轴上，其它节点摆在它右侧。
-  const nodeIds = new Map<string, string>()
-  const positions = new Map<string, Rect>()
-  let minX = 0
-  let maxX = 0
-  rowRanks.forEach((rankNo, rowIndex) => {
+  const rankList = rowRanks.map((rankNo, index) => {
     const nodes = rows.get(rankNo) ?? []
-    const rowY = LAYOUT.margin + rowIndex * (cfg.nodeHeight + gapY)
-    if (nodes.length > 1) notes.push(`第 ${rankNo + 1} 层有 ${nodes.length} 个并行节点（${nodes.map(n => n.text).join('、')}）`)
+    const column = Math.floor(index / rowsPerColumn)
+    const rowWithin = index % rowsPerColumn
+    // 蛇形：偶数列自上而下，奇数列自下而上，折返边就落在同一行上，画出来是一条横线。
+    const slot = column % 2 === 0 ? rowWithin : rowsPerColumn - 1 - rowWithin
     const main = nodes.find(node => mainPath.has(node.id))
-    const mainWidth = main === undefined ? 0 : nodeWidthOf(main)
-    const others = nodes.filter(node => node !== main)
-    const othersWidth = others.reduce((sum, node) => sum + nodeWidthOf(node), 0) + Math.max(0, others.length - 1) * cfg.gapX
-    const rowWidth = mainWidth + (main !== undefined && others.length > 0 ? cfg.gapX : 0) + othersWidth
-    let cursor = main === undefined ? -rowWidth / 2 : -mainWidth / 2
-    if (main !== undefined) {
-      const nodeWidth = nodeWidthOf(main)
-      const nodeHeight = nodeHeightOf(main)
-      const rect: Rect = { x: cursor, y: rowY + (cfg.nodeHeight - nodeHeight) / 2, width: nodeWidth, height: nodeHeight }
-      positions.set(main.id, rect)
-      cursor += nodeWidth + cfg.gapX
-    } else {
-      cursor = -rowWidth / 2
-    }
-    for (const node of others) {
-      const nodeWidth = nodeWidthOf(node)
-      const nodeHeight = nodeHeightOf(node)
-      positions.set(node.id, { x: cursor, y: rowY + (cfg.nodeHeight - nodeHeight) / 2, width: nodeWidth, height: nodeHeight })
-      cursor += nodeWidth + cfg.gapX
-    }
+    const rowWidth = nodes.reduce((sum, node) => sum + nodeWidthOf(node), 0) + Math.max(0, nodes.length - 1) * cfg.gapX
+    if (nodes.length > 1) notes.push(`第 ${rankNo + 1} 层有 ${nodes.length} 个并行节点（${nodes.map(n => n.text).join('、')}）`)
+    return { rankNo, nodes, column, slot, main, rowWidth }
   })
-  for (const rect of positions.values()) {
-    minX = Math.min(minX, rect.x)
-    maxX = Math.max(maxX, rect.x + rect.width)
+
+  const columnWidth: number[] = []
+  for (const item of rankList) {
+    columnWidth[item.column] = Math.max(columnWidth[item.column] ?? 0, item.rowWidth)
   }
-  const width = Math.max(460, maxX - minX + LAYOUT.margin * 2)
-  const shift = LAYOUT.margin - minX
-  for (const [id, rect] of positions) {
-    positions.set(id, { ...rect, x: rect.x + shift })
+  const columnX: number[] = []
+  let cursorX = LAYOUT.margin
+  for (let column = 0; column < columns; column += 1) {
+    columnX[column] = cursorX
+    cursorX += (columnWidth[column] ?? cfg.nodeWidth) + corridorGap
   }
 
-  // 跳层连线的绕行通道：放在内容右侧。不绕行的话，draw.io 会把「判断 → 第 N 层」这类
-  // 跨层边画成一条竖线，正好从中间几层的节点身上穿过去（看上去像把框划开了）。
-  const laneX = maxX + shift + 26
-  const contentWidth = Math.max(460, laneX + LAYOUT.margin - shift)
+  const nodeIds = new Map<string, string>()
+  const positions = new Map<string, Rect>()
+  const placement = new Map<string, { column: number, slot: number }>()
+  for (const item of rankList) {
+    const rowY = LAYOUT.margin + item.slot * (cfg.nodeHeight + gapY)
+    let x = columnX[item.column]! + ((columnWidth[item.column] ?? item.rowWidth) - item.rowWidth) / 2
+    const ordered = item.main === undefined ? item.nodes : [item.main, ...item.nodes.filter(node => node !== item.main)]
+    for (const node of ordered) {
+      const nodeWidth = nodeWidthOf(node)
+      const nodeHeight = nodeHeightOf(node)
+      positions.set(node.id, { x, y: rowY + (cfg.nodeHeight - nodeHeight) / 2, width: nodeWidth, height: nodeHeight })
+      placement.set(node.id, { column: item.column, slot: item.slot })
+      x += nodeWidth + cfg.gapX
+    }
+  }
+
+  // 同列跳层的绕行通道：放在该列右侧的列间走廊里，不压在别的节点上。
+  const laneXOf = (column: number): number => columnX[column]! + (columnWidth[column] ?? cfg.nodeWidth) + corridorGap / 2
+
+  let contentWidth = cursorX - corridorGap + LAYOUT.margin
 
   for (const node of model.nodes) {
     const rect = positions.get(node.id)
@@ -364,15 +372,46 @@ function buildFlow(model: Extract<FigureModel, { kind: 'flow' }>['model']): Figu
     if (source === undefined || target === undefined) throw new FigureLayoutError(`连线端点「${edge.from} → ${edge.to}」在版面里找不到`)
     const fromRect = positions.get(edge.from)
     const toRect = positions.get(edge.to)
-    const fromRank = rank.get(edge.from) ?? 0
-    const toRank = rank.get(edge.to) ?? 0
-    const skipsRanks = toRank - fromRank > 1
-    const horizontal = !skipsRanks && fromRect !== undefined && toRect !== undefined && Math.abs(fromRect.y - toRect.y) < 1
-    const style = skipsRanks
-      ? `${STYLE.edge}exitX=1;exitY=0.5;entryX=1;entryY=0.5;`
-      : horizontal
+    const from = placement.get(edge.from)
+    const to = placement.get(edge.to)
+    if (fromRect === undefined || toRect === undefined || from === undefined || to === undefined) continue
+
+    const fromY = fromRect.y + fromRect.height / 2
+    const toY = toRect.y + toRect.height / 2
+    let style: string
+    let points: { x: number, y: number }[] | undefined
+
+    if (from.column === to.column && Math.abs(from.slot - to.slot) === 1) {
+      // 相邻层：竖线直连。偶数列往下走，奇数列往上走。
+      style = from.slot < to.slot
+        ? `${STYLE.edge}exitX=0.5;exitY=1;entryX=0.5;entryY=0;`
+        : `${STYLE.edge}exitX=0.5;exitY=0;entryX=0.5;entryY=1;`
+    } else if (from.column === to.column && from.slot === to.slot) {
+      // 同层（并行分支）：水平直连，按左右决定方向。
+      style = fromRect.x <= toRect.x
         ? `${STYLE.edge}exitX=1;exitY=0.5;entryX=0;entryY=0.5;`
-        : `${STYLE.edge}exitX=0.5;exitY=1;entryX=0.5;entryY=0;`
+        : `${STYLE.edge}exitX=0;exitY=0.5;entryX=1;entryY=0.5;`
+    } else if (from.column === to.column) {
+      // 同列跳层：从该列右侧的走廊绕过去，避免竖线穿过中间的节点。
+      const lane = laneXOf(from.column)
+      contentWidth = Math.max(contentWidth, lane + LAYOUT.margin - 26)
+      style = `${STYLE.edge}exitX=1;exitY=0.5;entryX=1;entryY=0.5;`
+      points = [{ x: lane, y: fromY }, { x: lane, y: toY }]
+    } else {
+      // 跨列：走两列之间的走廊。折返边两端在同一行，正好是一条横线。
+      const left = Math.min(from.column, to.column)
+      const corridor = columnX[left]! + (columnWidth[left] ?? cfg.nodeWidth) + corridorGap / 2
+      const forward = to.column > from.column
+      const straight = Math.abs(fromY - toY) < 0.5
+      // 判断节点的两条分支常同时向右出：同一条边的起点要错开，否则「是」和「否」
+      // 会从同一点出发、在走廊里叠成一条线。向上走的分支从偏上处出，向下的偏下。
+      const exitY = straight ? 0.5 : toY < fromY ? 0.34 : 0.66
+      style = `${STYLE.edge}exitX=${forward ? 1 : 0};exitY=${exitY};entryX=${forward ? 0 : 1};entryY=0.5;`
+      points = straight
+        ? undefined
+        : [{ x: corridor, y: fromRect.y + fromRect.height * exitY }, { x: corridor, y: toY }]
+    }
+
     cells.push({
       kind: 'edge',
       id: nextEdge(),
@@ -380,14 +419,12 @@ function buildFlow(model: Extract<FigureModel, { kind: 'flow' }>['model']): Figu
       style,
       source,
       target,
-      ...(skipsRanks && fromRect !== undefined && toRect !== undefined
-        ? { points: [{ x: laneX, y: fromRect.y + fromRect.height / 2 }, { x: laneX, y: toRect.y + toRect.height / 2 }] }
-        : {}),
+      ...(points === undefined ? {} : { points }),
     })
   }
 
-  const height = LAYOUT.margin + rowRanks.length * (cfg.nodeHeight + gapY) - gapY + LAYOUT.margin
-  return { cells, width: contentWidth, height, notes }
+  const height = LAYOUT.margin + rowsPerColumn * (cfg.nodeHeight + gapY) - gapY + LAYOUT.margin
+  return { cells, width: Math.max(460, contentWidth), height, notes }
 }
 
 // ---------------------------------------------------------------------------

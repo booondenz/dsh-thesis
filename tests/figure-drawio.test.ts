@@ -207,83 +207,77 @@ test('架构图版面：层带自上而下不重叠，模块落在层带内，�
   assert.ok(drawing.height > 0 && drawing.notes.length >= 1, '5 个模块的层应提示自动折行')
 })
 
-test('流程图版面：按最长路径分层，箭头从下层节点的底部指向下层', () => {
-  const model = parseFigureModel('flow', {
-    nodes: [
-      { id: 's', text: '开始', kind: 'start' },
-      { id: 'a', text: '校验' },
-      { id: 'd', text: '通过?', kind: 'decision' },
-      { id: 'b', text: '拒绝', kind: 'end' },
-      { id: 'e', text: '保存', kind: 'process' },
-      { id: 'f', text: '结束', kind: 'end' },
-    ],
-    edges: [
-      { from: 's', to: 'a' },
-      { from: 'a', to: 'd' },
-      { from: 'd', to: 'b', label: '否' },
-      { from: 'd', to: 'e', label: '是' },
-      { from: 'e', to: 'f' },
-    ],
-  })
-  const drawing = buildDrawing(model)
-  const vertices = drawing.cells.filter(cell => cell.kind === 'vertex') as Extract<FigureCell, { kind: 'vertex' }>[]
-  const byText = new Map(vertices.map(cell => [cell.value, cell.rect]))
-  const start = byText.get('开始')!
-  const end = byText.get('结束')!
-  assert.ok(start.y < end.y, '起点在上、终点在下')
-  const decision = byText.get('通过?')!
-  assert.ok(decision.width < start.width, '菱形比矩形窄（版面常量）')
-  for (const edge of drawing.cells.filter(cell => cell.kind === 'edge') as Extract<FigureCell, { kind: 'edge' }>[]) {
-    assert.match(edge.style, /exitX=0\.5;exitY=1;entryX=0\.5;entryY=0;/, '竖向连线使用下→上锚点')
+/** 一条 n 层的直链流程（用来测版面折叠）。 */
+function chainFlow(n: number) {
+  const nodes: { id: string, text: string, kind: 'start' | 'process' | 'end' }[] = [{ id: 'n0', text: '开始', kind: 'start' }]
+  const edges: { from: string, to: string }[] = []
+  for (let index = 1; index < n; index += 1) {
+    nodes.push({ id: `n${index}`, text: `步骤 ${index}`, kind: index === n - 1 ? 'end' : 'process' })
+    edges.push({ from: `n${index - 1}`, to: `n${index}` })
+  }
+  return parseFigureModel('flow', { nodes, edges })
+}
+
+const flowVertices = (drawing: { cells: readonly FigureCell[] }) =>
+  drawing.cells.filter(cell => cell.kind === 'vertex') as Extract<FigureCell, { kind: 'vertex' }>[]
+const flowEdges = (drawing: { cells: readonly FigureCell[] }) =>
+  drawing.cells.filter(cell => cell.kind === 'edge') as Extract<FigureCell, { kind: 'edge' }>[]
+
+test('流程图版面：3 层以内单列，更长就折成两列蛇形', () => {
+  const short = buildDrawing(chainFlow(3))
+  assert.equal(new Set(flowVertices(short).map(cell => cell.rect.x)).size, 1, '3 层流程保持单列')
+
+  const long = buildDrawing(chainFlow(8))
+  assert.equal(new Set(flowVertices(long).map(cell => cell.rect.x)).size, 2, '8 层流程折成两列')
+  // 单列竖排时 8 层是 198×768（长宽比 3.9）：按 15.5cm 栏宽排开要 54cm 高，塞不进一页。
+  // 折成两列后应回到 1 附近。
+  const ratio = long.height / long.width
+  assert.ok(ratio < 1.2, `8 层流程的长宽比应回到 1 附近，实际 ${ratio.toFixed(2)}`)
+})
+
+test('流程图版面：偶数列自上而下、奇数列自下而上，折返边落在同一行', () => {
+  const drawing = buildDrawing(chainFlow(8))
+  const edges = flowEdges(drawing)
+  const styles = edges.map(edge => edge.style)
+  for (const style of styles.slice(0, 3)) {
+    assert.match(style, /exitX=0\.5;exitY=1;entryX=0\.5;entryY=0;/, '左列往下走：下→上锚点')
+  }
+  assert.equal(edges[3]!.points, undefined, '折返边两端同高，是一条直线')
+  assert.match(edges[3]!.style, /exitX=1;exitY=0\.5;entryX=0;entryY=0\.5;/, '折返边水平向右')
+  for (const style of styles.slice(4)) {
+    assert.match(style, /exitX=0\.5;exitY=0;entryX=0\.5;entryY=1;/, '右列往上走：上→下锚点')
   }
 })
 
-test('流程图版面：跳层连线走右侧通道，不从中间节点身上穿过去', () => {
+test('流程图版面：判断节点的两条分支从不同锚点出发，跨列长边走走廊', () => {
   const model = parseFigureModel('flow', {
     nodes: [
       { id: 's', text: '开始', kind: 'start' },
       { id: 'a', text: '扫描', kind: 'process' },
+      { id: 'b', text: '筛选', kind: 'process' },
       { id: 'd', text: '有到期任务?', kind: 'decision' },
-      { id: 'b', text: '选 worker', kind: 'process' },
-      { id: 'c', text: '提案', kind: 'process' },
-      { id: 'e', text: '处理超时', kind: 'process' },
-      { id: 'f', text: '结束', kind: 'end' },
+      { id: 'c', text: '选 worker', kind: 'process' },
+      { id: 'e', text: '提案', kind: 'process' },
+      { id: 'f', text: '处理超时', kind: 'process' },
+      { id: 'g', text: '结束', kind: 'end' },
     ],
     edges: [
       { from: 's', to: 'a' },
-      { from: 'a', to: 'd' },
-      { from: 'd', to: 'b', label: '是' },
-      { from: 'b', to: 'c' },
+      { from: 'a', to: 'b' },
+      { from: 'b', to: 'd' },
+      { from: 'd', to: 'c', label: '是' },
       { from: 'c', to: 'e' },
-      { from: 'd', to: 'e', label: '否' },
       { from: 'e', to: 'f' },
+      { from: 'd', to: 'f', label: '否' },
+      { from: 'f', to: 'g' },
     ],
   })
-  const drawing = buildDrawing(model)
-  const edges = drawing.cells.filter(cell => cell.kind === 'edge') as Extract<FigureCell, { kind: 'edge' }>[]
-  const skip = edges.find(edge => edge.value === '否')!
-  assert.match(skip.style, /exitX=1;exitY=0\.5;entryX=1;entryY=0\.5;/, '跳层边从右侧绕行')
-  assert.equal(skip.points?.length, 2, '绕行边带两个折点')
-  const vertices = drawing.cells.filter(cell => cell.kind === 'vertex') as Extract<FigureCell, { kind: 'vertex' }>[]
-  const maxRight = Math.max(...vertices.map(cell => cell.rect.x + cell.rect.width))
-  for (const point of skip.points ?? []) {
-    assert.ok(point.x > maxRight, '折点落在所有节点右侧的通道里')
-  }
-  const vertical = edges.filter(edge => edge.value !== '否')
-  for (const edge of vertical) {
-    assert.match(edge.style, /exitX=0\.5;exitY=1;entryX=0\.5;entryY=0;/, '普通边仍是上→下')
-  }
-})
-
-test('流程图版面：层数多时收紧行距，避免一张流程图占两三页高', () => {
-  const nodes = [{ id: 'n0', text: '开始', kind: 'start' as const }]
-  const edges: { from: string, to: string }[] = []
-  for (let index = 1; index <= 7; index += 1) {
-    nodes.push({ id: `n${index}`, text: `步骤 ${index}`, kind: index === 7 ? ('end' as const) : ('process' as const) })
-    edges.push({ from: `n${index - 1}`, to: `n${index}` })
-  }
-  const drawing = buildDrawing(parseFigureModel('flow', { nodes, edges }))
-  assert.ok(drawing.height < 760, `8 层流程图的高度应在 760 以内，实际 ${drawing.height}`)
+  const edges = flowEdges(buildDrawing(model))
+  const yes = edges.find(edge => edge.value === '是')!
+  const no = edges.find(edge => edge.value === '否')!
+  const exitY = (style: string) => Number(/exitY=([\d.]+)/.exec(style)?.[1])
+  assert.notEqual(exitY(yes.style), exitY(no.style), '两条分支不能从同一点出发叠成一条线')
+  assert.equal(no.points?.length, 2, '跨列长边走两列之间的走廊（两个折点）')
 })
 
 test('E-R 版面：实体是标题栏 + 字段行，两列排布，关系线不带箭头', () => {
