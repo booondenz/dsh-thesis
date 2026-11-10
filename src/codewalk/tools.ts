@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 面向前模型的工具：`defense_code_status`、`defense_code_next`、`defense_code_update`。
  *
  * 这三个工具是模型操作引擎的手柄：分析架构、安排教学由模型完成，但每一次改动
@@ -162,7 +162,7 @@ function nextPayload(state: LearningState): Record<string, unknown> {
   }
 }
 
-function updateTool(ctx: Context, engine: AiLearningEngine): ToolDefinitionShape {
+function updateTool(ctx: Context, base: AiLearningEngine): ToolDefinitionShape {
   return {
     name: 'defense_code_update',
     description:
@@ -209,6 +209,8 @@ function updateTool(ctx: Context, engine: AiLearningEngine): ToolDefinitionShape
       if (cwd === undefined) {
         throw new Error('learn_* 工具需要会话 cwd，但本次调用没有绑定 agent')
       }
+      // 写状态文件要带本次会话的沙箱策略，否则 workspace-write 下会被宿主拒绝。
+      const engine = base.forSession(exec.agent?.session)
       const update = args as UpdateArgs
       if (update.action === 'create') {
         const state = await engine.create(cwd, {

@@ -15,6 +15,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import { sandboxedFs } from '../shared/sandbox.ts'
 import type { StateFileSystem } from './fs-types.ts'
 import { LearningError } from './errors.ts'
 import type {
@@ -78,14 +79,28 @@ const TODO_MOVES: Readonly<Record<TodoStatus, readonly TodoStatus[]>> = {
 export class AiLearningEngine {
   private readonly ctx: Context
   private readonly resolved: ResolvedConfig
+  /** 绑定了会话沙箱策略的文件系统（`forSession` 产生的新实例才有）。 */
+  private readonly boundFs: StateFileSystem | undefined
 
-  constructor(ctx: Context, config: LearnOptions = {}) {
+  constructor(ctx: Context, config: LearnOptions = {}, boundFs?: StateFileSystem) {
     this.ctx = ctx
     this.resolved = {
       stateDir: config.stateDir ?? '.paper',
       gates: config.gates ?? { go: { build: ['go', 'build', './...'] } },
       maxCapturedOutput: config.maxCapturedOutput ?? 8000,
     }
+    this.boundFs = boundFs
+  }
+
+  /**
+   * 绑定本次会话的沙箱策略后的引擎。
+   *
+   * 为什么必须绑：宿主的 `writeText` 要第 5 参 `sandboxPolicy`，省略它就会退回部署默认策略，
+   * `workspace-write` 模式下连用户自己的工作区都写不进去（FS_SANDBOX_DENIED）。
+   * 引擎是注册期创建的单例，拿不到 per-call 的 session，所以每次调用现绑一个。
+   */
+  forSession(session: unknown): AiLearningEngine {
+    return new AiLearningEngine(this.ctx, this.resolved, sandboxedFs(this.ctx, session) as unknown as StateFileSystem)
   }
 
   /** 解析后的配置（默认值已物化）。 */
@@ -95,7 +110,7 @@ export class AiLearningEngine {
 
   /** 宿主文件系统接缝；`inject: ['fs']` 保证其存在。 */
   private get fs(): StateFileSystem {
-    return this.ctx.get('fs') as unknown as StateFileSystem
+    return this.boundFs ?? (this.ctx.get('fs') as unknown as StateFileSystem)
   }
 
   private stateFilePath(): string {

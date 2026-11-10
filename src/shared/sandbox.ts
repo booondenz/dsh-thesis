@@ -42,7 +42,9 @@ const WRITE_METHODS = new Set<string>(['writeText', 'editText'])
  * 插件里所有 lib 层的 `fs.writeText(...)` 都会自动拿到正确的策略。
  */
 export function sandboxedFs(ctx: Context, session: unknown): FileSystem {
-  const fs = ctx.fs
+  // 两种取法都要认：插件主体用 `ctx.fs`，代码演练引擎用 `ctx.get('fs')`。
+  const fs = (ctx as unknown as { fs?: FileSystem }).fs ?? (ctx.get('fs') as FileSystem | undefined)
+  if (fs === undefined) throw new Error('没有组合文件系统（ctx.fs 与 ctx.get("fs") 都拿不到），无法写文件。')
   const policy = resolveSandboxPolicy(ctx, session)
   if (policy === undefined) return fs
 
