@@ -1,14 +1,16 @@
 # DSH 第三方插件宿主 API 参考
 
 > **版本与兼容**：本文的签名摘自已安装产物，最初对着 **dsh 0.1.5-rc.1** 记录；
-> 已用 **dsh 0.2.0-rc.2** 重新核对本插件实际用到的每一处（`defineTool` 的 DSL、
-> `ctx.tools.register`、`agent/pre-step` 与 `tools/pre-execute` 的 waterfall、
-> `ctx.skills.registerProvider`、`ctx.shell` / `ctx.sandboxPolicy`，以及自动驾驶用到的
-> `ctx.userQuestions` / `ctx.goals` / 委派深度，见 §6.4），结论是契约未变。
+> 已用 **dsh 0.2.0-rc.2** 与 **dsh 0.2.2-rc.5**（桌面版）分别核对本插件实际用到的每一处
+> （`defineTool` 的 DSL、`ctx.tools.register`、`ctx.fs.writeText` 的第 5 参 `sandboxPolicy`、
+> `agent/pre-step` 与 `tools/pre-execute` 的 waterfall、`ctx.skills.registerProvider`、
+> `ctx.shell` / `ctx.sandboxPolicy`，以及自动驾驶用到的 `ctx.userQuestions` / `ctx.goals` /
+> 委派深度，见 §6.4），两次结论都是契约未变。
 > **唯一真正会挡住装载的不是 API，而是 manifest 的 peer range**——见 §7.7。
 
 只记录契约：签名、类型、事件名、注册与加载规则。签名逐字摘自已安装产物的 `lib/types/**/*.d.ts` 与 `lib/*.js`，
-冲突处已标注。安装根：`C:\Users\TTTT\AppData\Local\npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\`
+冲突处已标注。桌面版的安装根在 `resources/app.asar/dsh/node_modules/@deepseek-ai/`——asar 在原生
+`ls` / `cat` 里读不到，要用 `ELECTRON_RUN_AS_NODE=1` 跑 Electron 自带的 Node（见 §7.8）。
 
 ---
 
@@ -714,6 +716,40 @@ for (const [name, range] of Object.entries(manifest.peerDependencies ?? {})) {
   旧 range 也能组合成功。要观察它必须真的启动一次，或者直接用上面的函数判定
   （本仓库的 `scripts/lib/host-compat.ts` 就是这么做的，`npm run test:host-load`
   会同时检查**本仓库 manifest** 与 **profile 里已安装的那一份**）。
+
+### 7.8 对着「桌面版」验证一次（asar 里的宿主）
+
+桌面版把 `@deepseek-ai/dsh*` 放在 `resources/app.asar/dsh/node_modules/` 里。普通 `node`
+看不见 asar 内的路径，`findDshInstall()` 会退回到 profile 里那份**旧**安装
+（本机就是 `~/.dsh/profiles/node_modules/@deepseek-ai/dsh`，版本停在 0.2.0-rc.2）——
+于是 `npm run test:host-load` 全绿，却根本没验证你正在用的那个版本。
+
+用 Electron 自带的 Node 跑宿主校验，就能直接对着运行中的版本：
+
+```powershell
+$env:ELECTRON_RUN_AS_NODE = '1'
+# 注意是 node_modules 根，不是 @deepseek-ai/dsh 这个包目录
+$env:DSH_NODE_MODULES = "$env:DSH_INSTALL_DIR\..\..\..\..\.."   # …/resources/app.asar/dsh/node_modules
+& $env:DSH_NODE_EXECUTABLE 'scripts\host-verify.ts'
+```
+
+`DSH_INSTALL_DIR` 指向 `…\app.asar\dsh\node_modules\@deepseek-ai\dsh`，所以它上五级就是
+`…\app.asar\dsh`，其下的 `node_modules` 才是 `findDshInstall()` 要的 `node_modulesRoot`。
+
+实测（2026-11，dsh 0.2.2-rc.5，Electron 44 / Node 24.21）：
+
+| 检查 | 结果 |
+|---|---|
+| `manifest` 预检（宿主自己的 `evaluatePluginCompatibility`） | `dsh-thesis@2.2.1` 通过 |
+| `dsh --dump-config` 接受补丁层 | 通过 |
+| 插件未被引擎标记为加载失败 | 通过 |
+| `lib/index.js` ESM、无 `.ts` 导入、Config 校验 | 通过 |
+| 合计 | **13/13** |
+
+同一次升级里逐条核过 `dsh-fs-sandbox` 的实现仍是
+`writeText(target, content, expected, signal, sandboxPolicy)`（5 参未变），
+`dsh-sandbox-policy` 仍有 `resolve(request?)`，`dsh-tools` 仍导出 `defineTool`——
+所以 2.1.4 的沙箱修复在 0.2.2-rc.5 上依然成立。
 
 ---
 
